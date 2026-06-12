@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { MemoryService, ClimateProfile, AuditProgress } from "@/lib/memory-service";
 
 // Fixed breach date: 2033-06-11
 const BREACH_DATE = new Date("2033-06-11T00:00:00Z");
@@ -57,6 +58,31 @@ function LandingPageContent() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { yrs, days, hh, mm, ss } = useCountdown();
   const [hasScrolled, setHasScrolled] = useState(false);
+  
+  const [profile, setProfile] = useState<ClimateProfile | null>(null);
+  const [auditProgress, setAuditProgress] = useState<AuditProgress | null>(null);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  useEffect(() => {
+    const existingProfile = MemoryService.getProfile();
+    const existingProgress = MemoryService.getAuditProgress();
+    if (existingProfile || existingProgress) {
+      setProfile(existingProfile);
+      setAuditProgress(existingProgress);
+      // Wait for a brief moment after boot to show the modal if not landing
+      if (!isLanding) {
+        setShowReturnModal(true);
+      }
+    }
+  }, [isLanding]);
 
   useEffect(() => {
     setSelectedIndex(-1);
@@ -108,6 +134,20 @@ function LandingPageContent() {
       } else {
         handleRetrieve();
       }
+    }
+  };
+
+  const handleReturnAction = (action: "continue" | "new") => {
+    if (action === "continue") {
+      const targetCity = auditProgress?.city || profile?.city;
+      if (targetCity) {
+        localStorage.setItem("dc_city", targetCity);
+        router.push("/dossier?tab=ARCHIVE");
+      }
+    } else {
+      MemoryService.clearAuditProgress();
+      setAuditProgress(null);
+      setShowReturnModal(false);
     }
   };
 
@@ -712,6 +752,150 @@ function LandingPageContent() {
                   </div>
                 </motion.div>
               </div>
+              
+              {/* Return Visitor Overlay */}
+              <AnimatePresence>
+                {showReturnModal && (profile || auditProgress) && (
+                  <motion.div
+                    initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                    animate={{ opacity: 1, backdropFilter: "blur(8px)" }}
+                    exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: "rgba(0,0,0,0.85)",
+                      zIndex: 9999,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 24,
+                    }}
+                  >
+                    <motion.div
+                      initial={{ scale: 0.95, y: 20 }}
+                      animate={{ scale: 1, y: 0 }}
+                      exit={{ scale: 0.95, y: -20 }}
+                      style={{
+                        background: "#080808",
+                        border: "1px solid #1a1a1a",
+                        borderLeft: "3px solid #00cc66",
+                        padding: 32,
+                        maxWidth: 600,
+                        width: "100%",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 10,
+                          color: "#00cc66",
+                          letterSpacing: 4,
+                          textTransform: "uppercase",
+                          marginBottom: 24,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                        }}
+                      >
+                        <span className="live-dot-green" style={{ width: 8, height: 8 }} />
+                        RETURNING SUBJECT DETECTED
+                      </div>
+                      
+                      <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 32 }}>
+                        {profile && (
+                          <>
+                            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #1a1a1a", paddingBottom: 8 }}>
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#888880", letterSpacing: 2 }}>LAST INVESTIGATION</span>
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#ffffff", letterSpacing: 1 }}>
+                                {new Date(profile.lastVisitDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                              </span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #1a1a1a", paddingBottom: 8 }}>
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#888880", letterSpacing: 2 }}>PREVIOUS BURN RATE</span>
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#ff4444", letterSpacing: 1 }}>
+                                {profile.personalBurnRate > 0 ? `-${profile.personalBurnRate.toLocaleString()}s / DAY` : "N/A"}
+                              </span>
+                            </div>
+                            {profile.pastInvestigations && profile.pastInvestigations.length > 0 && (
+                              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #1a1a1a", paddingBottom: 8 }}>
+                                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#888880", letterSpacing: 2 }}>CLIMATE IMPROVEMENT</span>
+                                <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#00cc66", letterSpacing: 1 }}>
+                                  +{Math.max(0, profile.pastInvestigations[profile.pastInvestigations.length - 1].burnRate - profile.personalBurnRate).toLocaleString()}s / DAY
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {auditProgress && !profile && (
+                          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #1a1a1a", paddingBottom: 8 }}>
+                            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#888880", letterSpacing: 2 }}>INCOMPLETE AUDIT</span>
+                            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#ffaa00", letterSpacing: 1 }}>
+                              {auditProgress.city.toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div style={{ display: "flex", gap: 16, flexDirection: isMobile ? "column" : "row" }}>
+                        <button
+                          onClick={() => handleReturnAction("continue")}
+                          style={{
+                            flex: 1,
+                            background: "#00cc6622",
+                            border: "1px solid #00cc66",
+                            color: "#00cc66",
+                            fontFamily: "var(--font-mono)",
+                            fontSize: 10,
+                            letterSpacing: 2,
+                            padding: "16px 24px",
+                            textTransform: "uppercase",
+                            cursor: "pointer",
+                            transition: "all 0.2s",
+                          }}
+                          onMouseEnter={(e) => {
+                            const el = e.currentTarget;
+                            el.style.background = "#00cc6644";
+                          }}
+                          onMouseLeave={(e) => {
+                            const el = e.currentTarget;
+                            el.style.background = "#00cc6622";
+                          }}
+                        >
+                          ACCESS ARCHIVED INTELLIGENCE
+                        </button>
+                        <button
+                          onClick={() => handleReturnAction("new")}
+                          style={{
+                            flex: 1,
+                            background: "transparent",
+                            border: "1px solid #333333",
+                            color: "#aaaaaa",
+                            fontFamily: "var(--font-mono)",
+                            fontSize: 10,
+                            letterSpacing: 2,
+                            padding: "16px 24px",
+                            textTransform: "uppercase",
+                            cursor: "pointer",
+                            transition: "all 0.2s",
+                          }}
+                          onMouseEnter={(e) => {
+                            const el = e.currentTarget;
+                            el.style.background = "#1a1a1a";
+                            el.style.color = "#ffffff";
+                          }}
+                          onMouseLeave={(e) => {
+                            const el = e.currentTarget;
+                            el.style.background = "transparent";
+                            el.style.color = "#aaaaaa";
+                          }}
+                        >
+                          START NEW INVESTIGATION
+                        </button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>

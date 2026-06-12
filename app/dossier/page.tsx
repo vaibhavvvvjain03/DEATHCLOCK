@@ -3,22 +3,16 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { QUESTION_BANK, CATEGORY_NAMES, CATEGORY_KEYS } from "@/lib/questions";
 import { motion, AnimatePresence } from "framer-motion";
+import { MemoryService, ClimateProfile, AuditProgress, MissionRecord } from "@/lib/memory-service";
 
 // ── Types ──────────────────────────────────────────────
-type Tab = "DOSSIER" | "EVIDENCE" | "TIMELINE" | "AUDIT" | "VERDICT";
+type Tab = "DOSSIER" | "EVIDENCE" | "TIMELINE" | "AUDIT" | "VERDICT" | "ARCHIVE";
 
 interface ApiData {
   remainingBudgetTonnes: number;
   annualEmissionRate: number;
   secondsRemaining: number;
   contextSentence: string;
-}
-
-interface Swap {
-  action: string;
-  secondsBack: number;
-  difficulty: "easy" | "medium" | "hard";
-  localContext: string;
 }
 
 // ── Constants ──────────────────────────────────────────
@@ -83,14 +77,15 @@ export default function DossierPage() {
   const [totalBurnRate, setTotalBurnRate] = useState(0);
   const [auditDone, setAuditDone] = useState(false);
   const [loadingSwaps, setLoadingSwaps] = useState(false);
-  const [swaps, setSwaps] = useState<Swap[]>([]);
-  const [committed, setCommitted] = useState<string[]>([]);
+  const [missions, setMissions] = useState<MissionRecord[]>([]);
   const [floatingRestore, setFloatingRestore] = useState<{ id: string; seconds: number; key: number } | null>(null);
   const [showBurnoutPopup, setShowBurnoutPopup] = useState(false);
+  const [profile, setProfile] = useState<ClimateProfile | null>(null);
 
   // Audit transition
   const [transitioning, setTransitioning] = useState(false);
   const [transitionText, setTransitionText] = useState("");
+  const [showBriefing, setShowBriefing] = useState(true);
 
   // Processing state
   const [processingQ, setProcessingQ] = useState(false);
@@ -109,11 +104,29 @@ export default function DossierPage() {
       try { setApiData(JSON.parse(raw)); } catch { }
     }
 
-    const rawSwaps = localStorage.getItem("dc_swaps");
-    if (rawSwaps) { try { setSwaps(JSON.parse(rawSwaps)); } catch { } }
+    const existingProfile = MemoryService.getProfile();
+    if (existingProfile) {
+      setProfile(existingProfile);
+      setMissions(existingProfile.missions || []);
+    }
 
-    const rawCommitted = localStorage.getItem("dc_committed");
-    if (rawCommitted) { try { setCommitted(JSON.parse(rawCommitted)); } catch { } }
+    const progress = MemoryService.getAuditProgress();
+    if (progress && progress.city === c) {
+      setCatIdx(progress.catIdx);
+      setQIdx(progress.qIdx);
+      setAnswers(progress.answers);
+      setTotalBurnRate(progress.totalBurnRate);
+      if (progress.catIdx > 0 || progress.qIdx > 0) {
+        setShowBriefing(false);
+      }
+    }
+    
+    // Check URL params for initial tab
+    const searchParams = new URLSearchParams(window.location.search);
+    const initialTab = searchParams.get("tab");
+    if (initialTab && ["DOSSIER", "EVIDENCE", "TIMELINE", "AUDIT", "VERDICT", "ARCHIVE"].includes(initialTab)) {
+      setTab(initialTab as Tab);
+    }
   }, [router]);
 
   useEffect(() => {
@@ -168,6 +181,7 @@ export default function DossierPage() {
       const nextQIdx = qIdx + 1;
       if (nextQIdx < currentQuestions.length) {
         setQIdx(nextQIdx);
+        MemoryService.saveAuditProgress({ city, catIdx, qIdx: nextQIdx, answers: newAnswers, totalBurnRate: newBurn });
       } else {
         const nextCatIdx = catIdx + 1;
         if (nextCatIdx < catKeys.length) {
@@ -179,6 +193,7 @@ export default function DossierPage() {
             setTransitioning(false);
             setCatIdx(nextCatIdx);
             setQIdx(0);
+            MemoryService.saveAuditProgress({ city, catIdx: nextCatIdx, qIdx: 0, answers: newAnswers, totalBurnRate: newBurn });
           }, 500);
         } else {
           // All done — call swaps API
@@ -192,6 +207,45 @@ export default function DossierPage() {
   const finishAudit = async (allAnswers: Record<string, string>, burnRate: number) => {
     setLoadingSwaps(true);
     setTab("VERDICT");
+    const categoryScores: Record<string, number> = {};
+    CATEGORY_KEYS.forEach(key => {
+      let score = 0;
+      QUESTION_BANK[key].forEach(q => {
+        const selectedVal = allAnswers[q.id];
+        const option = q.options.find(o => o.value === selectedVal);
+        if (option) score += option.burnRate;
+      });
+      categoryScores[key] = Math.max(0, score);
+    });
+
+    const createProfileObject = (newMissions: MissionRecord[]) => {
+      const existingProfile = MemoryService.getProfile();
+      const pastInvestigations = existingProfile?.pastInvestigations || [];
+      
+      if (existingProfile) {
+        pastInvestigations.push({
+          id: `INV-${String(existingProfile.totalInvestigations).padStart(3, '0')}`,
+          city: existingProfile.city,
+          burnRate: existingProfile.personalBurnRate,
+          categoryScores: existingProfile.categoryScores || {},
+          completionDate: existingProfile.auditCompletionDate || existingProfile.lastVisitDate,
+          answers: existingProfile.answers
+        });
+      }
+
+      return {
+        city,
+        answers: allAnswers,
+        personalBurnRate: burnRate,
+        categoryScores,
+        missions: newMissions,
+        verdict: "COMPLETED",
+        auditCompletionDate: new Date().toISOString(),
+        totalInvestigations: existingProfile ? existingProfile.totalInvestigations + 1 : 1,
+        pastInvestigations
+      };
+    };
+
     try {
       const res = await fetch("/api/swaps", {
         method: "POST",
@@ -203,18 +257,29 @@ export default function DossierPage() {
         }),
       });
       const data = await res.json();
-      const swapList: Swap[] = data.swaps || [];
+      const swapList = data.swaps || [];
       if (swapList.length === 0) throw new Error("Empty swaps from API");
-      setSwaps(swapList);
-      localStorage.setItem("dc_swaps", JSON.stringify(swapList));
+      
+      const newMissions: MissionRecord[] = swapList.map((s: any, i: number) => ({
+        id: `msn_${Date.now()}_${i}`,
+        ...s,
+        status: "pending"
+      }));
+      setMissions(newMissions);
+      
+      MemoryService.saveProfile(createProfileObject(newMissions));
+      setProfile(MemoryService.getProfile());
+      MemoryService.clearAuditProgress();
     } catch {
-      const fallback: Swap[] = [
-        { action: "Switch to renewable energy provider", secondsBack: 15000, difficulty: "medium", localContext: `Look for local green energy options in ${city}.` },
-        { action: "Reduce red meat to once a week", secondsBack: 8000, difficulty: "easy", localContext: `Explore plant-based food in ${city}.` },
-        { action: "Replace 3 car trips with transit", secondsBack: 5000, difficulty: "medium", localContext: `Use the public transit network in ${city}.` },
+      const fallbackMissions: MissionRecord[] = [
+        { id: "msn_f1", action: "Switch to 100% renewable energy provider", difficulty: "medium", secondsBack: 21600, localContext: "Your regional grid has multiple green energy options available for immediate switch.", status: "pending" },
+        { id: "msn_f2", action: "Replace all vehicle trips under 3km with walking/cycling", difficulty: "easy", secondsBack: 14400, localContext: "Short trips are the most emission-intensive per kilometer.", status: "pending" },
+        { id: "msn_f3", action: "Eliminate beef and lamb from diet", difficulty: "hard", secondsBack: 28800, localContext: "Ruminant meat has the highest carbon footprint of all food sources.", status: "pending" }
       ];
-      setSwaps(fallback);
-      localStorage.setItem("dc_swaps", JSON.stringify(fallback));
+      setMissions(fallbackMissions);
+      MemoryService.saveProfile(createProfileObject(fallbackMissions));
+      setProfile(MemoryService.getProfile());
+      MemoryService.clearAuditProgress();
     } finally {
       setLoadingSwaps(false);
       setAuditDone(true);
@@ -222,23 +287,26 @@ export default function DossierPage() {
     }
   };
 
-  const handleCommit = (swap: Swap, idx: number) => {
-    const id = `swap_${idx}`;
-    const alreadyCommitted = committed.includes(id) || committed.includes(idx as any);
-
-    let newCommitted: string[];
-    if (alreadyCommitted) {
-      newCommitted = committed.filter((c) => c !== id && c !== (idx as any));
-    } else {
-      newCommitted = [...committed, id];
+  const handleCommit = (mission: MissionRecord, idx: number) => {
+    const isCompleted = mission.status === "completed";
+    const nextStatus = isCompleted ? "pending" : "completed";
+    
+    const newMissions = [...missions];
+    newMissions[idx] = { 
+      ...mission, 
+      status: nextStatus,
+      completedDate: nextStatus === "completed" ? new Date().toISOString() : undefined
+    };
+    
+    setMissions(newMissions);
+    if (profile) {
+      const newProfile = { ...profile, missions: newMissions };
+      MemoryService.saveProfile(newProfile);
+      setProfile(MemoryService.getProfile());
     }
 
-    setCommitted(newCommitted);
-    localStorage.setItem("dc_committed", JSON.stringify(newCommitted));
-
-    // Float animation
-    if (!alreadyCommitted) {
-      setFloatingRestore({ id, seconds: swap.secondsBack, key: Date.now() });
+    if (nextStatus === "completed") {
+      setFloatingRestore({ id: mission.id, seconds: mission.secondsBack, key: Date.now() });
       setTimeout(() => setFloatingRestore(null), 1500);
     }
   };
@@ -300,10 +368,7 @@ export default function DossierPage() {
     ctx.letterSpacing = "0px"; // Reset letter spacing
 
     // Check data
-    const totalRestored = committed.reduce((sum, id) => {
-      const idx = parseInt(String(id).replace("swap_", ""));
-      return sum + (swaps[idx]?.secondsBack || 0);
-    }, 0);
+    const totalRestored = missions.filter(m => m.status === "completed").reduce((sum, m) => sum + m.secondsBack, 0);
 
     const isPositive = totalRestored > 0;
 
@@ -325,7 +390,7 @@ export default function DossierPage() {
     ctx.stroke();
 
     // Body Text
-    ctx.fillStyle = "#aaaaaa";
+    ctx.fillStyle = "#dddddd";
     ctx.font = "italic 400 22px 'Times New Roman', Times, serif";
     ctx.fillText("This is to formally declare that the target region of", 600, 270);
 
@@ -335,7 +400,7 @@ export default function DossierPage() {
     ctx.fillText(city.toUpperCase(), 600, 340);
 
     // Sub-text
-    ctx.fillStyle = "#aaaaaa";
+    ctx.fillStyle = "#dddddd";
     ctx.font = "italic 400 22px 'Times New Roman', Times, serif";
     if (isPositive) {
       ctx.fillText("has successfully reclaimed carbon budget and delayed the point of no return.", 600, 400);
@@ -343,23 +408,39 @@ export default function DossierPage() {
       ctx.fillText("has actively worsened their carbon deficit and accelerated the point of no return.", 600, 400);
     }
 
-    // The Big Number
-    ctx.fillStyle = isPositive ? "#00cc66" : "#ff4444";
-    ctx.font = "600 68px 'IBM Plex Sans', sans-serif";
-    const amountText = isPositive ? `+${totalRestored.toLocaleString()} SECONDS / DAY` : `-${totalBurnRate.toLocaleString()} SECONDS / DAY`;
-    ctx.fillText(amountText, 600, 500);
+    // The Big Number / Recovery Metrics
+    if (isPositive) {
+      const daily = totalRestored;
+      const annual = totalRestored * 365.25;
+      const daysReturned = (annual / 86400).toFixed(2);
+      
+      ctx.fillStyle = "#bbbbbb";
+      ctx.font = "400 16px 'IBM Plex Mono', monospace";
+      ctx.fillText("TIMELINE RECOVERY", 600, 450);
+      ctx.fillStyle = "#00cc66";
+      ctx.font = "600 32px 'IBM Plex Sans', sans-serif";
+      ctx.fillText(`+${daily.toLocaleString()} sec/day`, 600, 485);
 
-    // Mission / Threat Class
-    ctx.fillStyle = "#777777";
-    ctx.font = "400 18px 'IBM Plex Mono', monospace";
-    if (isPositive && committed.length > 0) {
-      const firstCommitIdx = parseInt(String(committed[0]).replace("swap_", ""));
-      const mission = swaps[firstCommitIdx];
-      if (mission) {
-        ctx.fillText(`PRIMARY INTERVENTION: ${mission.action.toUpperCase()}`, 600, 560);
-      }
-    } else if (!isPositive) {
+      ctx.fillStyle = "#bbbbbb";
+      ctx.font = "400 16px 'IBM Plex Mono', monospace";
+      ctx.fillText("ANNUAL RECOVERY", 600, 530);
+      ctx.fillStyle = "#00cc66";
+      ctx.font = "600 32px 'IBM Plex Sans', sans-serif";
+      ctx.fillText(`+${annual.toLocaleString()} sec/year`, 600, 565);
+
+      ctx.fillStyle = "#bbbbbb";
+      ctx.font = "400 16px 'IBM Plex Mono', monospace";
+      ctx.fillText("CLIMATE EQUIVALENT", 600, 610);
+      ctx.fillStyle = "#00cc66";
+      ctx.font = "600 24px 'IBM Plex Sans', sans-serif";
+      ctx.fillText(`${daysReturned} days returned to the projected timeline`, 600, 640);
+    } else {
+      ctx.fillStyle = "#ff4444";
+      ctx.font = "600 68px 'IBM Plex Sans', sans-serif";
+      ctx.fillText(`-${totalBurnRate.toLocaleString()} SECONDS / DAY`, 600, 500);
       const impactClass = totalBurnRate > 5000 ? "ALPHA-1 CRITICAL" : totalBurnRate > 2000 ? "BETA-2 SEVERE" : "GAMMA-3 ELEVATED";
+      ctx.fillStyle = "#777777";
+      ctx.font = "400 18px 'IBM Plex Mono', monospace";
       ctx.fillText(`THREAT CLASS ASSIGNED: ${impactClass}`, 600, 560);
     }
 
@@ -382,7 +463,7 @@ export default function DossierPage() {
     ctx.fillText("CIB", sealX, sealY + 10);
 
     // Bottom Text Left
-    ctx.fillStyle = "#666666";
+    ctx.fillStyle = "#999999";
     ctx.font = "400 12px 'IBM Plex Mono', monospace";
     ctx.textAlign = "left";
     ctx.fillText("SEAL OF THE CARBON INTELLIGENCE BUREAU", sealX + 60, sealY + 5);
@@ -401,7 +482,7 @@ export default function DossierPage() {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    ctx.fillStyle = "#666666";
+    ctx.fillStyle = "#999999";
     ctx.font = "400 14px 'IBM Plex Mono', monospace";
     ctx.fillText("deathclock.app", 1000, 710);
 
@@ -443,7 +524,7 @@ export default function DossierPage() {
           <div style={{ fontFamily: "var(--font-sans)", fontSize: isMobile ? 24 : 32, fontWeight: 600, color: "#ffffff", letterSpacing: 2, textTransform: "uppercase", lineHeight: 1 }}>
             {city}
           </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#888880", letterSpacing: 3, textTransform: "uppercase", marginTop: 8 }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#bbbbbb", letterSpacing: 3, textTransform: "uppercase", marginTop: 8 }}>
             TARGET REGION · 19.0°N 72.8°E
           </div>
         </div>
@@ -453,7 +534,7 @@ export default function DossierPage() {
             border: "2px solid #ff4444",
             color: "#ff4444",
             fontFamily: "var(--font-mono)",
-            fontSize: 10,
+            fontSize: 16,
             fontWeight: 700,
             letterSpacing: 4,
             padding: "4px 10px",
@@ -483,7 +564,7 @@ export default function DossierPage() {
           {/* Crosshairs */}
           <div style={{ position: "absolute", top: "40%", left: 0, right: 0, height: 1, background: "rgba(255, 68, 68, 0.3)" }} />
           <div style={{ position: "absolute", top: 0, bottom: 0, left: "60%", width: 1, background: "rgba(255, 68, 68, 0.3)" }} />
-          <div style={{ position: "absolute", bottom: 8, left: 8, fontFamily: "var(--font-mono)", fontSize: 8, color: "#555", letterSpacing: 2 }}>
+          <div style={{ position: "absolute", bottom: 8, left: 8, fontFamily: "var(--font-mono)", fontSize: 16, color: "#555", letterSpacing: 2 }}>
             SAT-LINK ACTIVE
           </div>
         </div>
@@ -563,7 +644,7 @@ export default function DossierPage() {
           </div>
         </div>
         {!isMobile && (
-          <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: 10, color: "#888880", lineHeight: 1.6 }}>
+          <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: 16, color: "#bbbbbb", lineHeight: 1.6 }}>
             STATUS: <span style={{ color: "#ff4444" }}>ACTIVE MONITORING</span><br />
             ENCRYPTION: <span style={{ color: "#a0a0a0" }}>AES-256-GCM</span>
           </div>
@@ -588,8 +669,8 @@ export default function DossierPage() {
             {EVIDENCE_BARS.map((bar, i) => (
               <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#e0e0e0", letterSpacing: 2 }}>{bar.label}</span>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: bar.color, letterSpacing: 1, textShadow: `0 0 8px ${bar.color}44` }}>{bar.pct}%</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: "#e0e0e0", letterSpacing: 2 }}>{bar.label}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: bar.color, letterSpacing: 1, textShadow: `0 0 8px ${bar.color}44` }}>{bar.pct}%</span>
                 </div>
                 {/* Advanced Segmented Bar */}
                 <div style={{ display: "flex", height: 6, gap: 2, background: "#0a0a0a", border: "1px solid #111", padding: 1 }}>
@@ -622,7 +703,7 @@ export default function DossierPage() {
             <div className="intel-label" style={{ color: "#ff4444" }}>
               <span className="live-dot" style={{ width: 6, height: 6 }} /> CRITICAL FINDING
             </div>
-            <div className="intel-text" style={{ color: "#f4f4f4", fontSize: 12 }}>
+            <div className="intel-text" style={{ color: "#f4f4f4", fontSize: 16 }}>
               Energy generation and transport account for the majority of regional carbon output. Immediate intervention in these sectors yields the highest timeline extension potential.
             </div>
           </div>
@@ -634,7 +715,7 @@ export default function DossierPage() {
             </div>
             <div style={{
               fontFamily: "var(--font-mono)",
-              fontSize: 8,
+              fontSize: 16,
               color: "#ffaa0088",
               display: "flex",
               flexDirection: "column",
@@ -650,6 +731,44 @@ export default function DossierPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div style={{ marginTop: 16, borderTop: "1px solid #1a1a1a", paddingTop: 24 }}>
+        <div className="doc-label" style={{ marginBottom: 12, color: "#666" }}>
+          // METHODOLOGY // CLASSIFIED CALCULATION PROTOCOLS
+        </div>
+        <details style={{ background: "#050505", border: "1px solid #1a1a1a", marginBottom: 8 }}>
+          <summary style={{ padding: "12px 16px", cursor: "pointer", fontFamily: "var(--font-mono)", fontSize: 13, color: "#bbbbbb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>[+] TRANSPORTATION PROTOCOL</span>
+          </summary>
+          <div style={{ padding: "0 16px 16px 16px", fontFamily: "var(--font-sans)", fontSize: 13, color: "#888", lineHeight: 1.6 }}>
+            Employs distance-to-emission ratios based on regional combustion averages. EV multipliers apply a 0.2x coefficient, while high-frequency air travel incurs an exponential penalty.
+          </div>
+        </details>
+        <details style={{ background: "#050505", border: "1px solid #1a1a1a", marginBottom: 8 }}>
+          <summary style={{ padding: "12px 16px", cursor: "pointer", fontFamily: "var(--font-mono)", fontSize: 13, color: "#bbbbbb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>[+] DIETARY EMISSION PROTOCOL</span>
+          </summary>
+          <div style={{ padding: "0 16px 16px 16px", fontFamily: "var(--font-sans)", fontSize: 13, color: "#888", lineHeight: 1.6 }}>
+            Calculates methane and supply-chain logistics. Red meat consumption adds a compound multiplier due to land-use footprint, while local supply chains reduce freight transport overhead.
+          </div>
+        </details>
+        <details style={{ background: "#050505", border: "1px solid #1a1a1a", marginBottom: 8 }}>
+          <summary style={{ padding: "12px 16px", cursor: "pointer", fontFamily: "var(--font-mono)", fontSize: 13, color: "#bbbbbb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>[+] ENERGY INFRASTRUCTURE PROTOCOL</span>
+          </summary>
+          <div style={{ padding: "0 16px 16px 16px", fontFamily: "var(--font-sans)", fontSize: 13, color: "#888", lineHeight: 1.6 }}>
+            Assesses HVAC baseload and local grid intensity. Solar integrations offset raw burn rates by up to 200s/day, while unregulated cooling drastically accelerates timeline decay.
+          </div>
+        </details>
+        <details style={{ background: "#050505", border: "1px solid #1a1a1a", marginBottom: 8 }}>
+          <summary style={{ padding: "12px 16px", cursor: "pointer", fontFamily: "var(--font-mono)", fontSize: 13, color: "#bbbbbb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>[+] CONSUMPTION & WASTE PROTOCOL</span>
+          </summary>
+          <div style={{ padding: "0 16px 16px 16px", fontFamily: "var(--font-sans)", fontSize: 13, color: "#888", lineHeight: 1.6 }}>
+            Tracks hardware refresh cycles and single-use plastics against landfill degradation curves. Segregated waste and circular practices yield timeline recovery points.
+          </div>
+        </details>
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "auto", paddingTop: 20 }}>
@@ -731,7 +850,7 @@ export default function DossierPage() {
                 <div
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 8,
+                    fontSize: 16,
                     color: "#a0a0a0",
                     letterSpacing: 4,
                     textTransform: "uppercase",
@@ -745,8 +864,8 @@ export default function DossierPage() {
                 <div
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 24,
-                    color: "#333333",
+                    fontSize: 22,
+                    color: "#555555",
                     padding: "0 8px",
                     paddingBottom: 20,
                   }}
@@ -782,7 +901,7 @@ export default function DossierPage() {
             <span
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: 10,
+                fontSize: 16,
                 color: "#ff4444",
                 fontWeight: 700,
                 letterSpacing: 1,
@@ -822,7 +941,7 @@ export default function DossierPage() {
             style={{
               width: "100%",
               padding: "20px 0",
-              fontSize: 14,
+              fontSize: 16,
               letterSpacing: 4,
               boxShadow: "0 0 20px rgba(255, 68, 68, 0.2)"
             }}
@@ -835,6 +954,37 @@ export default function DossierPage() {
   );
 
   const renderAudit = () => {
+    if (showBriefing && catIdx === 0 && qIdx === 0) {
+      return (
+        <div style={{ flex: 1, padding: isMobile ? "24px 16px" : "40px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div className="doc-label" style={{ color: "#ffaa00", marginBottom: 16 }}>PERSONAL CLIMATE ASSESSMENT</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "#dddddd", lineHeight: 1.6, marginBottom: 24 }}>
+            This assessment contains 30 intelligence checkpoints.
+            <br /><br />
+            The Bureau will evaluate:
+            <ul style={{ margin: "16px 0", paddingLeft: 20, color: "#bbbbbb" }}>
+              <li>Transportation activity</li>
+              <li>Food consumption patterns</li>
+              <li>Residential energy usage</li>
+              <li>Consumer behavior</li>
+              <li>Waste generation</li>
+              <li>Occupational impact</li>
+            </ul>
+            Responses will be used to generate a personalized carbon intelligence profile.
+            <br /><br />
+            <span style={{ color: "#ff4444" }}>Estimated completion time: 2–3 minutes.</span>
+          </div>
+          <button
+            className="btn-primary"
+            onClick={() => setShowBriefing(false)}
+            style={{ padding: "16px", fontSize: 16, letterSpacing: 3 }}
+          >
+            COMMENCE AUDIT
+          </button>
+        </div>
+      );
+    }
+
     if (loadingSwaps) {
       return (
         <div
@@ -913,7 +1063,7 @@ export default function DossierPage() {
               <div
                 style={{
                   fontFamily: "var(--font-sans)",
-                  fontSize: 22,
+                  fontSize: 20,
                   color: "#ffffff",
                   fontWeight: 500,
                 }}
@@ -923,7 +1073,7 @@ export default function DossierPage() {
               <div
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 10,
+                  fontSize: 16,
                   color: "#333",
                   letterSpacing: 3,
                 }}
@@ -947,8 +1097,8 @@ export default function DossierPage() {
             <span
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: 8,
-                color: "#666666",
+                fontSize: 16,
+                color: "#999999",
                 letterSpacing: 3,
                 textTransform: "uppercase",
               }}
@@ -963,16 +1113,12 @@ export default function DossierPage() {
                   setTotalBurnRate(0);
                   setAnswers({});
                   setAuditDone(false);
-                  setSwaps([]);
-                  localStorage.removeItem("dc_burnrate");
-                  localStorage.removeItem("dc_answers");
-                  localStorage.removeItem("dc_swaps");
-                  localStorage.setItem("dc_catIdx", "0");
-                  localStorage.setItem("dc_qIdx", "0");
+                  setMissions([]);
+                  MemoryService.clearAuditProgress();
                 }}
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 8,
+                  fontSize: 16,
                   color: "#ff4444",
                   background: "transparent",
                   border: "none",
@@ -986,7 +1132,7 @@ export default function DossierPage() {
               <span
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 8,
+                  fontSize: 16,
                   color: "#555555",
                   letterSpacing: 2,
                 }}
@@ -1024,7 +1170,7 @@ export default function DossierPage() {
             <span
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: 8,
+                fontSize: 16,
                 color: "#ff4444",
                 letterSpacing: 4,
                 textTransform: "uppercase",
@@ -1097,7 +1243,7 @@ export default function DossierPage() {
                     const optSpan = el.querySelector(".opt-text") as HTMLElement;
                     if (optSpan) optSpan.style.color = "#ffffff";
                     const letterSpan = el.querySelector(".opt-letter") as HTMLElement;
-                    if (letterSpan) letterSpan.style.color = "#444444";
+                    if (letterSpan) letterSpan.style.color = "#777777";
                     const arrowSpan = el.querySelector(".opt-arrow") as HTMLElement;
                     if (arrowSpan) arrowSpan.style.color = "#222222";
                   }}
@@ -1106,8 +1252,8 @@ export default function DossierPage() {
                     className="opt-letter"
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: 8,
-                      color: "#444444",
+                      fontSize: 16,
+                      color: "#777777",
                       flexShrink: 0,
                       width: 16,
                       transition: "color 0.15s",
@@ -1119,7 +1265,7 @@ export default function DossierPage() {
                     className="opt-text"
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: 11,
+                      fontSize: 9,
                       color: "#ffffff",
                       flex: 1,
                       lineHeight: 1.4,
@@ -1132,7 +1278,7 @@ export default function DossierPage() {
                     className="opt-arrow"
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: 10,
+                      fontSize: 16,
                       color: "#222222",
                       flexShrink: 0,
                       transition: "color 0.15s",
@@ -1154,7 +1300,7 @@ export default function DossierPage() {
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: 9,
-                    color: "#333333",
+                    color: "#555555",
                     letterSpacing: 1,
                   }}
                 >
@@ -1206,7 +1352,42 @@ export default function DossierPage() {
     );
   };
 
-  const renderVerdict = () => (
+  const getThreatLevel = (burnRate: number) => {
+    if (burnRate > 8000) return "OMEGA-0 TERMINAL";
+    if (burnRate > 5000) return "ALPHA-1 CRITICAL";
+    if (burnRate > 2000) return "BETA-2 CONCERNING";
+    if (burnRate > 500) return "GAMMA-3 ELEVATED";
+    return "DELTA-4 STABLE";
+  };
+
+  const renderVerdict = () => {
+    let topReductions: { name: string; delta: number; pct: number }[] = [];
+    let totalRecovery = 0;
+    const prevInv = profile?.pastInvestigations?.[profile.pastInvestigations.length - 1];
+
+    if (prevInv && prevInv.categoryScores) {
+      const currentScores = profile?.categoryScores || {};
+      Object.keys(currentScores).forEach(key => {
+        const prev = prevInv.categoryScores[key] || 0;
+        const curr = currentScores[key];
+        const delta = prev - curr;
+        if (delta > 0) {
+          const idx = catKeys.indexOf(key as any);
+          topReductions.push({
+            name: CATEGORY_NAMES[idx] || key,
+            delta,
+            pct: prev > 0 ? (delta / prev) * 100 : 100
+          });
+          totalRecovery += delta;
+        }
+      });
+      topReductions.sort((a, b) => b.delta - a.delta);
+    }
+
+    const currentThreat = getThreatLevel(totalBurnRate);
+    const prevThreat = prevInv ? getThreatLevel(prevInv.burnRate) : null;
+
+    return (
     <div style={{ padding: isMobile ? "16px" : "24px 28px", overflowY: "auto", flex: 1, position: "relative", maxWidth: "100%", overflowX: "hidden" }}>
       {/* Floating restore animation */}
       <AnimatePresence>
@@ -1235,7 +1416,7 @@ export default function DossierPage() {
         )}
       </AnimatePresence>
 
-      <div className="doc-label" style={{ marginBottom: 12, color: "#666666" }}>
+      <div className="doc-label" style={{ marginBottom: 12, color: "#999999" }}>
         PERSONAL VERDICT // {city.toUpperCase()}
       </div>
 
@@ -1252,14 +1433,14 @@ export default function DossierPage() {
         {[
           { label: "DAILY BURN", value: totalBurnRate > 0 ? `-${totalBurnRate.toLocaleString()}s` : "—" },
           { label: "WEEKLY BURN", value: totalBurnRate > 0 ? `-${(totalBurnRate * 7).toLocaleString()}s` : "—" },
-          { label: "IMPACT CLASS", value: totalBurnRate > 5000 ? "ALPHA" : totalBurnRate > 2000 ? "BETA" : "GAMMA" },
+          { label: "IMPACT CLASS", value: currentThreat.split(" ")[0], color: totalBurnRate > 5000 ? "#ff4444" : totalBurnRate > 2000 ? "#ffaa00" : "#00cc66" },
         ].map((cell, i) => (
           <div key={i} style={{ background: "#0d0d0d", padding: 12, border: "1px solid #1e1e1e" }}>
             <div className="doc-label" style={{ marginBottom: 6 }}>{cell.label}</div>
             <div
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: 700,
                 color: "#ff4444",
                 fontVariantNumeric: "tabular-nums",
@@ -1274,9 +1455,33 @@ export default function DossierPage() {
         ))}
       </div>
 
+      {/* Agent Analysis Report */}
+      {topReductions.length > 0 && (
+        <div style={{ marginBottom: 20, border: "1px solid #1a1a1a", padding: 16, background: "#050505" }}>
+          <div className="doc-label" style={{ marginBottom: 12, color: "#00cc66" }}>AGENT ANALYSIS</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "#dddddd", lineHeight: 1.6 }}>
+            Your greatest reduction originated from {topReductions[0].name.toLowerCase()}.
+            <br /><br />
+            {topReductions.map(r => (
+              <span key={r.name}>
+                {r.name} emissions decreased by {Math.round(r.pct)}%.<br />
+              </span>
+            ))}
+            <br />
+            Combined interventions generated a timeline recovery of {totalRecovery.toLocaleString()} seconds.
+            <br />
+            <span style={{ color: "#00cc66", marginTop: 8, display: "block" }}>
+              {prevThreat && currentThreat !== prevThreat 
+                ? `Threat classification downgraded from ${prevThreat} to ${currentThreat}.` 
+                : "Threat progression has slowed significantly."}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Category breakdown bars */}
       <div style={{ marginBottom: 20 }}>
-        <div className="doc-label" style={{ marginBottom: 12, color: "#aaaaaa" }}>CATEGORY BREAKDOWN</div>
+        <div className="doc-label" style={{ marginBottom: 12, color: "#dddddd" }}>CATEGORY BREAKDOWN</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {CATEGORY_NAMES.map((name, i) => {
             const catKey = catKeys[i];
@@ -1294,8 +1499,8 @@ export default function DossierPage() {
                 <span
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 8,
-                    color: "#aaaaaa",
+                    fontSize: 16,
+                    color: "#dddddd",
                     width: 100,
                     flexShrink: 0,
                     letterSpacing: 2,
@@ -1313,7 +1518,7 @@ export default function DossierPage() {
                 <span
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 8,
+                    fontSize: 16,
                     color,
                     width: 32,
                     textAlign: "right",
@@ -1329,7 +1534,7 @@ export default function DossierPage() {
       </div>
 
       {/* Mission cards */}
-      <div className="doc-label" style={{ marginBottom: 12, color: "#aaaaaa" }}>RECOMMENDED MISSIONS</div>
+      <div className="doc-label" style={{ marginBottom: 12, color: "#dddddd" }}>MISSION EFFECTIVENESS REPORT</div>
 
       {loadingSwaps ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
@@ -1338,7 +1543,7 @@ export default function DossierPage() {
             <div
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: 10,
+                fontSize: 16,
                 color: "#ff4444",
                 letterSpacing: 3,
               }}
@@ -1350,7 +1555,7 @@ export default function DossierPage() {
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: 9,
-              color: "#cccccc",
+              color: "#eeeeee",
               letterSpacing: 2,
               display: "flex",
               alignItems: "center",
@@ -1361,7 +1566,7 @@ export default function DossierPage() {
             ✦ POWERED BY GEMINI AI
           </div>
         </div>
-      ) : swaps.length === 0 ? (
+      ) : missions.length === 0 ? (
         <div
           style={{
             fontFamily: "var(--font-mono)",
@@ -1374,121 +1579,99 @@ export default function DossierPage() {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-          {swaps.map((swap, idx) => {
-            const id = `swap_${idx}`;
-            const isCommitted = committed.includes(id);
+          {missions.map((mission, idx) => {
+            const isCompleted = mission.status === "completed";
             return (
               <div
                 key={idx}
-                onClick={() => handleCommit(swap, idx)}
+                onClick={() => handleCommit(mission, idx)}
                 style={{
-                  border: `1px solid ${isCommitted ? "#ff444055" : "#1e1e1e"}`,
+                  border: `1px solid ${isCompleted ? "#00cc6655" : "#1e1e1e"}`,
                   borderRadius: 2,
                   padding: 14,
-                  background: isCommitted ? "#ff44440d" : "#0d0d0d",
+                  background: isCompleted ? "#00cc660a" : "#050505",
                   display: "flex",
-                  gap: 16,
+                  flexDirection: "column",
+                  gap: 8,
                   transition: "all 0.2s",
                   cursor: "pointer",
                 }}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget as HTMLDivElement;
-                  el.style.borderColor = "#ff444033";
-                  el.style.background = "#ff44440a";
-                  const actionEl = el.querySelector(".mission-action") as HTMLElement;
-                  if (actionEl) actionEl.style.color = "#ffffff";
+                  el.style.borderColor = isCompleted ? "#00cc66" : "#333";
+                  el.style.background = isCompleted ? "#00cc661a" : "#1a1a1a";
                 }}
                 onMouseLeave={(e) => {
                   const el = e.currentTarget as HTMLDivElement;
-                  el.style.borderColor = isCommitted ? "#ff444055" : "#1e1e1e";
-                  el.style.background = isCommitted ? "#ff44440d" : "#0d0d0d";
-                  const actionEl = el.querySelector(".mission-action") as HTMLElement;
-                  if (actionEl) actionEl.style.color = isCommitted ? "#ffffff" : "#888880";
+                  el.style.borderColor = isCompleted ? "#00cc6655" : "#1e1e1e";
+                  el.style.background = isCompleted ? "#00cc660a" : "#050505";
                 }}
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 7,
-                      color: "#888888",
-                      letterSpacing: 2,
-                      textTransform: "uppercase",
-                      marginBottom: 4,
-                    }}
-                  >
-                    MSN-{String(idx + 1).padStart(3, "0")}
-                  </div>
-                  <div
-                    className="mission-action"
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 12,
-                      color: isCommitted ? "#ffffff" : "#eeeeee",
-                      lineHeight: 1.5,
-                      marginBottom: 4,
-                      transition: "color 0.15s",
-                    }}
-                  >
-                    {swap.action.toUpperCase()}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 10,
-                      color: "#cccccc",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {swap.localContext}
-                  </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #1a1a1a", paddingBottom: 8 }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "#aaaaaa" }}>MISSION-{String(idx + 1).padStart(3, "0")}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "#ffffff" }}>{mission.action}</span>
                 </div>
-                <div style={{ flexShrink: 0, textAlign: "right" }}>
-                  <div
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 13,
-                      color: "#ff4444",
-                      fontVariantNumeric: "tabular-nums",
-                      marginBottom: 6,
-                    }}
-                  >
-                    +{swap.secondsBack.toLocaleString()}s
-                  </div>
-                  {isCommitted ? (
-                    <div
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: 9,
-                        color: "#00cc66",
-                        letterSpacing: 2,
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      ✓ COMMITTED
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: 8,
-                        color: DIFF_COLORS[swap.difficulty] + "77",
-                        letterSpacing: 2,
-                        background: "#ff444015",
-                        padding: "2px 6px",
-                        borderRadius: 1,
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      {swap.difficulty}
-                    </div>
-                  )}
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#888" }}>STATUS:</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: isCompleted ? "#00cc66" : "#ffaa00" }}>{isCompleted ? "Completed" : "In Progress"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#888" }}>ESTIMATED IMPACT:</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#00cc66" }}>+{mission.secondsBack.toLocaleString()}s</span>
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      {/* FINAL BUREAU ASSESSMENT (Task 5) & THREAT EVOLUTION (Task 4) */}
+      <div style={{ marginTop: 24, marginBottom: 24, padding: 16, border: "1px dashed #ff4444", background: "rgba(255, 68, 68, 0.05)" }}>
+        <div className="doc-label" style={{ marginBottom: 12, color: "#ff4444" }}>FINAL BUREAU ASSESSMENT</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "#dddddd", lineHeight: 1.6 }}>
+          {prevInv ? (
+            <>
+              {topReductions.length > 0 ? (
+                <>Subject demonstrates measurable reduction in {topReductions[0].name.toLowerCase()} emissions.<br /><br /></>
+              ) : null}
+              {totalRecovery > 0 ? (
+                <>
+                  Combined interventions reduced carbon threat by {((totalRecovery / prevInv.burnRate) * 100).toFixed(1)}%.<br /><br />
+                  Timeline recovery achieved:<br />
+                  <span style={{ color: "#00cc66" }}>+{totalRecovery.toLocaleString()} seconds/day</span><br /><br />
+                </>
+              ) : null}
+              
+              <div style={{ borderLeft: "2px solid #333", paddingLeft: 12, margin: "12px 0", background: "#050505", padding: "12px 12px 12px 16px" }}>
+                <span style={{ color: "#888", fontSize: 12, letterSpacing: 1 }}>THREAT EVOLUTION REPORT</span><br />
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+                  <span style={{ color: "#aaa" }}>INITIAL THREAT</span>
+                  <span style={{ color: prevThreat?.includes("ALPHA") ? "#ff4444" : prevThreat?.includes("BETA") ? "#ffaa00" : "#00cc66" }}>{prevThreat}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                  <span style={{ color: "#aaa" }}>CURRENT THREAT</span>
+                  <span style={{ color: currentThreat.includes("ALPHA") ? "#ff4444" : currentThreat.includes("BETA") ? "#ffaa00" : "#00cc66" }}>{currentThreat}</span>
+                </div>
+                {totalRecovery > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, borderTop: "1px solid #333", paddingTop: 8 }}>
+                    <span style={{ color: "#00cc66" }}>STATUS</span>
+                    <span style={{ color: "#00cc66" }}>INTERVENTION SUCCESSFUL</span>
+                  </div>
+                )}
+              </div>
+              
+              Recommendation:<br />
+              Continue mission compliance and return for reassessment after significant behavioral changes.
+            </>
+          ) : (
+            <>
+              THREAT TO REGION: <span style={{ color: "#ffffff" }}>{city.toUpperCase()}</span><br />
+              IMPACT CLASS: <span style={{ color: currentThreat.includes("ALPHA") ? "#ff4444" : currentThreat.includes("BETA") ? "#ffaa00" : "#00cc66" }}>{currentThreat}</span><br /><br />
+              RECOMMENDED ACTION: Execution of pending missions mandatory to reverse timeline decay. Return for reassessment after intervention protocols.
+            </>
+          )}
+        </div>
+      </div>
 
       {/* Broadcast button */}
       <button
@@ -1498,8 +1681,222 @@ export default function DossierPage() {
       >
         BROADCAST VERDICT
       </button>
+      <button
+        className="btn-secondary"
+        style={{ width: "100%", marginTop: 8, background: "transparent", border: "1px solid #333", color: "#e0e0e0", padding: "16px", fontFamily: "var(--font-mono)", letterSpacing: 2 }}
+        onClick={() => setTab("ARCHIVE")}
+      >
+        VIEW ARCHIVED INTELLIGENCE
+      </button>
     </div>
   );
+  };
+
+  const renderArchive = () => {
+    let recoverySources: { category: string; delta: number }[] = [];
+    let behaviorChanges: string[] = [];
+    
+    if (profile && profile.pastInvestigations && profile.pastInvestigations.length > 0) {
+      const lastInv = profile.pastInvestigations[profile.pastInvestigations.length - 1];
+      
+      CATEGORY_KEYS.forEach(key => {
+        const oldScore = lastInv.categoryScores?.[key] || 0;
+        const newScore = profile.categoryScores?.[key] || 0;
+        const delta = oldScore - newScore;
+        if (delta > 0) {
+          recoverySources.push({ category: key.toUpperCase(), delta });
+        }
+      });
+      recoverySources.sort((a, b) => b.delta - a.delta);
+
+      if (lastInv.answers && profile.answers) {
+        CATEGORY_KEYS.forEach(key => {
+          QUESTION_BANK[key].forEach(q => {
+            const oldVal = lastInv.answers![q.id];
+            const newVal = profile.answers[q.id];
+            if (oldVal && newVal && oldVal !== newVal) {
+              const oldOpt = q.options.find(o => o.value === oldVal);
+              const newOpt = q.options.find(o => o.value === newVal);
+              if (oldOpt && newOpt && newOpt.burnRate < oldOpt.burnRate) {
+                let phrase = q.question + " IMPROVED";
+                if (q.id === "mov_2") phrase = "COMMUTE DISTANCE REDUCED";
+                if (q.id === "mov_1" && newVal === "public_transit") phrase = "PUBLIC TRANSIT USAGE INCREASED";
+                if (q.id === "food_2") phrase = "RED MEAT CONSUMPTION REDUCED";
+                if (q.id === "home_2" || q.id === "home_4") phrase = "HOME ENERGY EFFICIENCY IMPROVED";
+                if (q.id === "mov_3") phrase = "FLIGHT FREQUENCY REDUCED";
+                if (q.id === "food_4") phrase = "FOOD WASTE REDUCED";
+                if (q.id === "cons_1") phrase = "APPAREL ACQUISITION REDUCED";
+                if (q.id === "cons_4") phrase = "SINGLE-USE PLASTIC REDUCED";
+                behaviorChanges.push(phrase);
+              }
+            }
+          });
+        });
+        behaviorChanges = Array.from(new Set(behaviorChanges));
+      }
+    }
+
+    return (
+    <div style={{ padding: isMobile ? "16px" : "24px 28px", overflowY: "auto", flex: 1, maxWidth: "100%", overflowX: "hidden", display: "flex", flexDirection: "column", gap: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", borderBottom: "1px solid #00cc6633", paddingBottom: 12 }}>
+        <div>
+          <div className="doc-label" style={{ color: "#00cc66", marginBottom: 4 }}>
+            ███████ INTELLIGENCE BUREAU MEMORY SYSTEM
+          </div>
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: isMobile ? 18 : 24, fontWeight: 600, color: "#ffffff", letterSpacing: 2, textTransform: "uppercase" }}>
+            ARCHIVE
+          </div>
+        </div>
+      </div>
+
+      {!profile || !profile.pastInvestigations || profile.pastInvestigations.length === 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "center", marginTop: 40 }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: "#ffffff", letterSpacing: 2, textAlign: "center" }}>
+            NO ARCHIVED INVESTIGATIONS FOUND FOR THIS SUBJECT.
+          </div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "#dddddd", letterSpacing: 1, textAlign: "center", maxWidth: 450, lineHeight: 1.6 }}>
+            SUBJECT IS CURRENTLY ON THEIR FIRST INVESTIGATION. RETURN FOR A SECOND AUDIT AT A LATER DATE TO UNLOCK COMPARATIVE ANALYSIS AND TIMELINE IMPROVEMENT METRICS.
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+            <div style={{ background: "#050505", border: "1px solid #1a1a1a", borderLeft: "3px solid #00cc66", padding: 20 }}>
+              <div className="doc-label" style={{ color: "#bbbbbb", marginBottom: 12 }}>LAST INVESTIGATION</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: "#ffffff", letterSpacing: 1 }}>
+                {new Date(profile.pastInvestigations[profile.pastInvestigations.length - 1].completionDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+              </div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: "#666", marginTop: 4 }}>
+                CITY: {profile.pastInvestigations[profile.pastInvestigations.length - 1].city.toUpperCase()}
+              </div>
+            </div>
+            
+            <div style={{ background: "#050505", border: "1px solid #1a1a1a", borderLeft: "3px solid #ffaa00", padding: 20 }}>
+              <div className="doc-label" style={{ color: "#bbbbbb", marginBottom: 12 }}>PREVIOUS BURN RATE</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 22, color: "#ffaa00", fontVariantNumeric: "tabular-nums" }}>
+                -{profile.pastInvestigations[profile.pastInvestigations.length - 1].burnRate.toLocaleString()}s <span style={{ fontSize: 16 }}>/ DAY</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ border: "1px solid #1a1a1a", padding: 24, background: "#080808" }}>
+            <div className="doc-label" style={{ color: "#dddddd", marginBottom: 20 }}>CURRENT PROGRESS ANALYSIS</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: "#bbbbbb" }}>CURRENT BURN RATE</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: "#ff4444" }}>-{profile.personalBurnRate.toLocaleString()}s / DAY</span>
+            </div>
+            
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid #1a1a1a" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: "#bbbbbb" }}>TIMELINE IMPROVEMENT</span>
+              {profile.pastInvestigations[profile.pastInvestigations.length - 1].burnRate - profile.personalBurnRate > 0 ? (
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: "#00cc66" }}>
+                  +{(profile.pastInvestigations[profile.pastInvestigations.length - 1].burnRate - profile.personalBurnRate).toLocaleString()}s / DAY
+                </span>
+              ) : (
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: "#ff4444" }}>
+                  {(profile.pastInvestigations[profile.pastInvestigations.length - 1].burnRate - profile.personalBurnRate).toLocaleString()}s / DAY
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid #1a1a1a", marginTop: 12 }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: "#bbbbbb" }}>CARBON THREAT REDUCTION</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: "#00cc66" }}>
+                {Math.max(0, ((profile.pastInvestigations[profile.pastInvestigations.length - 1].burnRate - profile.personalBurnRate) / profile.pastInvestigations[profile.pastInvestigations.length - 1].burnRate) * 100).toFixed(1)}%
+              </span>
+            </div>
+          </div>
+
+          {recoverySources.length > 0 && (
+            <div style={{ border: "1px solid #1a1a1a", padding: 24, background: "#050505" }}>
+              <div className="doc-label" style={{ color: "#dddddd", marginBottom: 20 }}>RECOVERY SOURCE BREAKDOWN</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {recoverySources.map((rs, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px dashed #333", paddingBottom: 8 }}>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "#bbbbbb" }}>{rs.category}</span>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "#00cc66" }}>+{rs.delta.toLocaleString()}s/day recovered</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {behaviorChanges.length > 0 && (
+            <div style={{ border: "1px solid #1a1a1a", padding: 24, background: "#050505", borderLeft: "3px solid #00cc66" }}>
+              <div className="doc-label" style={{ color: "#00cc66", marginBottom: 16 }}>BEHAVIOR CHANGE DETECTED</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {behaviorChanges.map((bc, i) => (
+                  <div key={i} style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "#dddddd", letterSpacing: 1 }}>
+                    {bc}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <div style={{ border: "1px solid #1a1a1a", padding: 24, background: "#050505" }}>
+            <div className="doc-label" style={{ color: "#dddddd", marginBottom: 20 }}>INVESTIGATION HISTORY</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {(() => {
+                const history = [...profile.pastInvestigations, {
+                  id: `INV-${String(profile.totalInvestigations).padStart(3, '0')}`,
+                  city: profile.city,
+                  burnRate: profile.personalBurnRate,
+                  categoryScores: profile.categoryScores,
+                  completionDate: profile.auditCompletionDate || profile.lastVisitDate
+                }].sort((a, b) => new Date(b.completionDate).getTime() - new Date(a.completionDate).getTime());
+                
+                return history.map((inv, i) => (
+                  <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8, borderBottom: i < history.length - 1 ? "1px solid #1a1a1a" : "none", paddingBottom: i < history.length - 1 ? 16 : 0 }}>
+                    <div className="doc-label" style={{ color: "#bbbbbb" }}>INVESTIGATION #{inv.id.split('-')[1]}</div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#888" }}>DATE:</span>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#fff" }}>{new Date(inv.completionDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }).toUpperCase()}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#888" }}>BURN RATE:</span>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#ff4444" }}>-{inv.burnRate.toLocaleString()}s/day</span>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+          
+          <div style={{ display: "flex", gap: 16 }}>
+            <div style={{ flex: 1, border: "1px solid #1a1a1a", padding: 16, textAlign: "center" }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 22, color: "#00cc66", marginBottom: 8 }}>
+                {profile.missions.filter(m => m.status === "completed").length}
+              </div>
+              <div className="doc-label" style={{ color: "#bbbbbb" }}>MISSIONS COMPLETED</div>
+            </div>
+            <div style={{ flex: 1, border: "1px solid #1a1a1a", padding: 16, textAlign: "center" }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 22, color: "#00cc66", marginBottom: 8 }}>
+                +{profile.missions.filter(m => m.status === "completed").reduce((sum, m) => sum + m.secondsBack, 0).toLocaleString()}s
+              </div>
+              <div className="doc-label" style={{ color: "#bbbbbb" }}>EXTENSION EARNED</div>
+            </div>
+          </div>
+
+          {/* Intelligence Explanation Engine */}
+          <div style={{ marginTop: 8, border: "1px dashed #333", padding: 16, background: "#050505" }}>
+            <div className="doc-label" style={{ color: "#bbbbbb", marginBottom: 12 }}>INTELLIGENCE EXPLANATION ENGINE</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <span style={{ color: "#00cc66", fontFamily: "var(--font-mono)", fontSize: 13 }}>BURN RATE DEFINED: </span>
+                <span style={{ color: "#aaaaaa", fontFamily: "var(--font-mono)", fontSize: 13 }}>The exact number of seconds your actions are accelerating the region's carbon decay per day.</span>
+              </div>
+              <div>
+                <span style={{ color: "#00cc66", fontFamily: "var(--font-mono)", fontSize: 13 }}>TIMELINE IMPROVEMENT: </span>
+                <span style={{ color: "#aaaaaa", fontFamily: "var(--font-mono)", fontSize: 13 }}>Calculated by subtracting your current audit burn rate from your historical burn rate. Positive numbers indicate a slowdown in decay.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+  };
 
   // ── NAV ITEMS ──
   const NAV_ITEMS: { id: Tab; icon: string; label: string; badge?: string }[] = [
@@ -1508,6 +1905,7 @@ export default function DossierPage() {
     { id: "TIMELINE", icon: "◷", label: "TIMELINE", badge: "LIVE" },
     { id: "AUDIT", icon: "⊙", label: "AUDIT" },
     { id: "VERDICT", icon: "⊕", label: "VERDICT" },
+    { id: "ARCHIVE", icon: "◫", label: "ARCHIVE" },
   ];
 
   return (
@@ -1534,20 +1932,20 @@ export default function DossierPage() {
         <div
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 8,
-            color: "#888880",
+            fontSize: 16,
+            color: "#bbbbbb",
             letterSpacing: 2,
             textTransform: "uppercase",
           }}
         >
           CIB DATABASE ›{" "}
-          <span style={{ color: "#888880" }}>CITY RECORDS ›</span>{" "}
+          <span style={{ color: "#bbbbbb" }}>CITY RECORDS ›</span>{" "}
           <span style={{ color: "#ffffff" }}>{city.toUpperCase()}</span>
         </div>
         <div
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 7,
+            fontSize: 9,
             color: "#ff444433",
             letterSpacing: 2,
           }}
@@ -1585,7 +1983,7 @@ export default function DossierPage() {
                   onClick={() => setTab(item.id)}
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 8,
+                    fontSize: 16,
                     letterSpacing: 2,
                     padding: "10px 12px",
                     border: "none",
@@ -1599,7 +1997,7 @@ export default function DossierPage() {
                 >
                   {item.icon} {item.label}
                   {item.badge && (
-                    <span style={{ color: "#ff4444", marginLeft: 4, fontSize: 7 }}>
+                    <span style={{ color: "#ff4444", marginLeft: 4, fontSize: 9 }}>
                       {item.badge}
                     </span>
                   )}
@@ -1662,6 +2060,7 @@ export default function DossierPage() {
               {tab === "TIMELINE" && renderTimeline()}
               {tab === "AUDIT" && renderAudit()}
               {tab === "VERDICT" && renderVerdict()}
+              {tab === "ARCHIVE" && renderArchive()}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -1669,8 +2068,8 @@ export default function DossierPage() {
       {showBurnoutPopup && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: "#0c0c0c", border: "1px solid #ff4444", padding: 40, maxWidth: 500, textAlign: "center", fontFamily: "var(--font-mono)" }}>
-            <div style={{ color: "#ff4444", fontSize: 24, marginBottom: 16, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 2 }}>CRITICAL BURNOUT DETECTED</div>
-            <div style={{ color: "#ffffff", fontSize: 14, marginBottom: 24, lineHeight: 1.6, textTransform: "uppercase" }}>
+            <div style={{ color: "#ff4444", fontSize: 22, marginBottom: 16, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 2 }}>CRITICAL BURNOUT DETECTED</div>
+            <div style={{ color: "#ffffff", fontSize: 16, marginBottom: 24, lineHeight: 1.6, textTransform: "uppercase" }}>
               YOUR PERSONAL BURNOUT IS <span style={{ color: "#ffaa00" }}>{totalBurnRate.toLocaleString()} SECONDS PER DAY</span>, CAUSING {city.toUpperCase()} TO DEGRADE ITS LIFE FASTER.
             </div>
             <button className="btn-primary" onClick={() => setShowBurnoutPopup(false)}>ACKNOWLEDGE</button>
