@@ -290,23 +290,25 @@ input, textarea { font-family: var(--font-mono); }
 
 .btn-ghost {
   background: transparent;
-  color: var(--c-accent);
+  color: #ff6666;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 3px;
   padding: 12px;
   border-radius: 2px;
-  border: 1px solid #ff444444;
+  border: 1px solid #ff666666;
   width: 100%;
   text-transform: uppercase;
   transition: all 0.2s;
   opacity: 1;
+  text-shadow: 0 0 6px rgba(255,102,102,0.4);
 }
 
 .btn-ghost:hover {
-  background: #ff44440a;
-  border-color: var(--c-accent);
-  color: var(--c-accent);
+  background: rgba(255,68,68,0.1);
+  border-color: #ff6666;
+  color: #ffaaaa;
+  text-shadow: 0 0 10px rgba(255,102,102,0.8);
 }
 
 /* ── Sidebar nav items ── */
