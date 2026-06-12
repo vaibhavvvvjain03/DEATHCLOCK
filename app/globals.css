@@ -1,26 +1,360 @@
-@import "tailwindcss";
+/* ═══════════════════════════════════════════
+   DEATHCLOCK — CLASSIFIED INTELLIGENCE SYSTEM
+   DESIGN TOKEN LAYER v3.0
+   ═══════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ── Color Tokens ── */
+  --c-bg:           #0a0a0a;
+  --c-surface:      #0f0f0f;
+  --c-elevated:     #141414;
+  --c-card:         #111111;
+  --c-border-sub:   #1e1e1e;
+  --c-border-mid:   #2a2a2a;
+  --c-border-act:   #ff444422;
+
+  --c-accent:       #ff4444;
+  --c-warning:      #ffaa00;
+  --c-granted:      #00cc66;
+
+  /* Text hierarchy */
+  --c-text-pri:     #ffffff;   /* primary readable content */
+  --c-text-sec:     #f4f4f4;   /* descriptions, intel text */
+  --c-text-label:   #a0a0a0;   /* small uppercase meta labels */
+  --c-text-muted:   #888880;   /* very secondary */
+  --c-text-dim:     #666666;   /* nearly invisible chrome */
+
+  /* ── Font Tokens ── */
+  --font-mono:      'IBM Plex Mono', monospace;
+  --font-sans:      'IBM Plex Sans', sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ── Reset ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  cursor: none !important;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html, body {
+  height: 100%;
+  background: var(--c-bg);
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 28px,
+    rgba(255,255,255,0.010) 28px,
+    rgba(255,255,255,0.010) 29px
+  );
+  color: var(--c-text-pri);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: var(--c-bg); }
+::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 1px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+
+/* ── Selection ── */
+::selection {
+  background: #ff444422;
+  color: var(--c-accent);
+}
+
+/* ── Base elements ── */
+a { color: inherit; text-decoration: none; }
+button {
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  cursor: none !important;
+}
+input, textarea { font-family: var(--font-mono); }
+
+/* ── Utility: font families ── */
+.font-mono    { font-family: var(--font-mono); }
+.font-sans    { font-family: var(--font-sans); }
+
+/* ── Utility: text colors ── */
+.text-accent   { color: var(--c-accent); }
+.text-warning  { color: var(--c-warning); }
+.text-granted  { color: var(--c-granted); }
+.text-pri      { color: var(--c-text-pri); }
+.text-sec      { color: var(--c-text-sec); }
+.text-label    { color: var(--c-text-label); }
+.text-muted    { color: var(--c-text-muted); }
+.text-dim      { color: var(--c-text-dim); }
+
+/* ── Page layout ── */
+.page-full {
+  min-height: 100vh;
+  background: transparent;
+  position: relative;
+}
+
+/* ── Animated live dot ── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 10px #ff4444; }
+  50%       { opacity: 0.5; box-shadow: 0 0 2px #ff4444; }
+}
+
+.live-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--c-accent);
+  animation: pulse-dot 1.2s ease-in-out infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+.live-dot-green {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--c-granted);
+  animation: pulse-dot 1.2s ease-in-out infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Value flash on reveal ── */
+@keyframes value-flash {
+  0%   { color: #ffffff; text-shadow: 0 0 10px rgba(255,68,68,0.5); }
+  100% { color: inherit; text-shadow: none; }
+}
+.value-flash { animation: value-flash 0.5s ease-out forwards; }
+
+/* ── Ticker scroll ── */
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-track {
+  display: flex;
+  white-space: nowrap;
+  animation: ticker-scroll 40s linear infinite;
+}
+
+/* ── Spinner ── */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* ── Redacted bar ── */
+.redacted {
+  display: inline-block;
+  background: #2a2a2a;
+  height: 10px;
+  border-radius: 1px;
+  vertical-align: middle;
+}
+
+/* ── Stamp ── */
+.stamp {
+  display: inline-block;
+  border: 2px solid var(--c-accent);
+  color: var(--c-accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  padding: 4px 10px;
+  border-radius: 2px;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.stamp-granted {
+  display: inline-block;
+  border: 2px solid var(--c-granted);
+  color: var(--c-granted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  padding: 3px 8px;
+  border-radius: 2px;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+/* ── Intel box ── */
+.intel-box {
+  border: 1px solid var(--c-border-sub);
+  border-left: 2px solid #ff444433;
+  background: #0d0d0d;
+  padding: 12px 16px;
+}
+
+.intel-label {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  color: #ff444066;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.intel-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--c-text-sec);
+  line-height: 1.8;
+}
+
+/* ── Doc field ── */
+.doc-field {
+  border-bottom: 1px solid #171717;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+.doc-label {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  color: var(--c-text-label);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.doc-value {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.3;
+  color: var(--c-text-pri);
+}
+
+/* ── Progress bar ── */
+.progress-track {
+  height: 1px;
+  background: #1a1a1a;
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--c-accent);
+  transition: width 0.4s ease;
+  border-radius: 1px;
+}
+
+/* ── Category bar ── */
+.cat-bar-track {
+  flex: 1;
+  height: 2px;
+  background: #111111;
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.cat-bar-fill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 0.8s ease;
+}
+
+/* ── Button base ── */
+.btn-primary {
+  background: var(--c-accent);
+  color: #000;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  padding: 13px 18px;
+  border-radius: 2px;
+  border: none;
+  transition: background 150ms;
+  text-transform: uppercase;
+}
+
+.btn-primary:hover { background: #ff6666; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--c-accent);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 3px;
+  padding: 12px;
+  border-radius: 2px;
+  border: 1px solid #ff444444;
+  width: 100%;
+  text-transform: uppercase;
+  transition: all 0.2s;
+  opacity: 1;
+}
+
+.btn-ghost:hover {
+  background: #ff44440a;
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+}
+
+/* ── Sidebar nav items ── */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: #a0a0a0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 3px;
+  text-align: left;
+  text-transform: uppercase;
+  transition: all 0.15s;
+}
+
+.nav-item:hover {
+  color: #ffffff;
+  background: #ffffff08;
+  border-left-color: #ff444444;
+}
+
+.nav-item.active {
+  color: #ffffff;
+  background: #ff44440d;
+  border-left-color: #ff4444;
+  font-weight: 500;
+}
+
+.nav-badge {
+  background: #ff444422;
+  color: #ff4444;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 2px;
+  padding: 2px 5px;
+  border-radius: 1px;
+  text-transform: uppercase;
+}
+
+/* ── Mobile touch targets ── */
+@media (max-width: 768px) {
+  button, a, [role="button"] {
+    min-height: 44px;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
