@@ -56,6 +56,7 @@ function LandingPageContent() {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const { yrs, days, hh, mm, ss } = useCountdown();
+  const [hasScrolled, setHasScrolled] = useState(false);
 
   useEffect(() => {
     setSelectedIndex(-1);
@@ -268,6 +269,7 @@ function LandingPageContent() {
           ) : (
             <motion.div
               key="dossier"
+              onScroll={(e) => setHasScrolled(e.currentTarget.scrollTop > 50)}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6 }}
@@ -710,6 +712,48 @@ function LandingPageContent() {
                   </div>
                 </motion.div>
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {!isLanding && !hasScrolled && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.5, delay: 1 }}
+              style={{
+                position: "absolute",
+                bottom: 20,
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 9999,
+                pointerEvents: "none",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+              }}
+            >
+              <motion.div
+                animate={{ y: [0, 8, 0] }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: "50%",
+                  background: "rgba(255, 68, 68, 0.1)",
+                  border: "1px solid rgba(255, 68, 68, 0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 0 20px rgba(255, 68, 68, 0.15)",
+                }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 5v14M19 12l-7 7-7-7"/>
+                </svg>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
