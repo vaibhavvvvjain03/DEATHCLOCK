@@ -25,6 +25,8 @@ export const metadata: Metadata = {
   keywords: ["carbon budget", "climate", "deathclock", "emissions"],
 };
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,36 +35,38 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${ibmPlexMono.variable} ${ibmPlexSans.variable}`}>
       <body>
-        {/* Scanline overlay */}
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background:
-              "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)",
-            pointerEvents: "none",
-            zIndex: 9000,
-          }}
-        />
-        {/* Vignette overlay */}
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background:
-              "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.7) 100%)",
-            pointerEvents: "none",
-            zIndex: 9001,
-          }}
-        />
+        <ErrorBoundary>
+          {/* Scanline overlay */}
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background:
+                "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)",
+              pointerEvents: "none",
+              zIndex: 9000,
+            }}
+          />
+          {/* Vignette overlay */}
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background:
+                "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.7) 100%)",
+              pointerEvents: "none",
+              zIndex: 9001,
+            }}
+          />
 
-        {/* Custom cursor */}
-        <Cursor />
+          {/* Custom cursor */}
+          <Cursor />
 
-        {/* Page switcher + nav dots */}
-        <PageSwitcher />
+          {/* Page switcher + nav dots */}
+          <PageSwitcher />
 
-        {children}
+          {children}
+        </ErrorBoundary>
       </body>
     </html>
   );

@@ -1,19 +1,14 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { QUESTION_BANK, CATEGORY_NAMES, CATEGORY_KEYS } from "@/lib/questions";
 import { motion, AnimatePresence } from "framer-motion";
 import { MemoryService, ClimateProfile, AuditProgress, MissionRecord } from "@/lib/memory-service";
+import { CarbonData } from "@/lib/types";
+import { calculateBurnRate } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────
 type Tab = "DOSSIER" | "EVIDENCE" | "TIMELINE" | "AUDIT" | "VERDICT" | "ARCHIVE";
-
-interface ApiData {
-  remainingBudgetTonnes: number;
-  annualEmissionRate: number;
-  secondsRemaining: number;
-  contextSentence: string;
-}
 
 // ── Constants ──────────────────────────────────────────
 const BREACH_DATE = new Date("2033-06-11T00:00:00Z");
@@ -67,14 +62,18 @@ export default function DossierPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("DOSSIER");
   const [city, setCity] = useState("");
-  const [apiData, setApiData] = useState<ApiData | null>(null);
+  const [apiData, setApiData] = useState<CarbonData | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Audit state
+  const handleTabChange = (newTab: Tab) => {
+    setTab(newTab);
+    router.replace(`?tab=${newTab}`, { scroll: false });
+  };
+
   const [catIdx, setCatIdx] = useState(0);
   const [qIdx, setQIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [totalBurnRate, setTotalBurnRate] = useState(0);
+  const totalBurnRate = useMemo(() => calculateBurnRate(answers), [answers]);
   const [auditDone, setAuditDone] = useState(false);
   const [loadingSwaps, setLoadingSwaps] = useState(false);
   const [missions, setMissions] = useState<MissionRecord[]>([]);
@@ -115,7 +114,6 @@ export default function DossierPage() {
       setCatIdx(progress.catIdx);
       setQIdx(progress.qIdx);
       setAnswers(progress.answers);
-      setTotalBurnRate(progress.totalBurnRate);
       if (progress.catIdx > 0 || progress.qIdx > 0) {
         setShowBriefing(false);
       }
@@ -160,9 +158,9 @@ export default function DossierPage() {
     if (processingQ || transitioning) return;
 
     const newAnswers = { ...answers, [currentQ.id]: optionValue };
-    const newBurn = totalBurnRate + burnRate;
+    // We calculate new burn rate locally to pass to MemoryService/finishAudit directly
+    const newBurn = calculateBurnRate(newAnswers);
     setAnswers(newAnswers);
-    setTotalBurnRate(newBurn);
 
     // Show processing lines
     setProcessingQ(true);
@@ -247,6 +245,9 @@ export default function DossierPage() {
     };
 
     try {
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), 10000);
+
       const res = await fetch("/api/swaps", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -255,7 +256,14 @@ export default function DossierPage() {
           allAnswers,
           personalDailySeconds: burnRate,
         }),
+        signal: abortController.signal,
       });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
       const data = await res.json();
       const swapList = data.swaps || [];
       if (swapList.length === 0) throw new Error("Empty swaps from API");
@@ -1684,7 +1692,7 @@ export default function DossierPage() {
       <button
         className="btn-secondary"
         style={{ width: "100%", marginTop: 8, background: "transparent", border: "1px solid #333", color: "#e0e0e0", padding: "16px", fontFamily: "var(--font-mono)", letterSpacing: 2 }}
-        onClick={() => setTab("ARCHIVE")}
+        onClick={() => handleTabChange("ARCHIVE")}
       >
         VIEW ARCHIVED INTELLIGENCE
       </button>
@@ -1980,7 +1988,7 @@ export default function DossierPage() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setTab(item.id)}
+                  onClick={() => handleTabChange(item.id)}
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: 16,
@@ -2020,7 +2028,7 @@ export default function DossierPage() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setTab(item.id)}
+                  onClick={() => handleTabChange(item.id)}
                   className={`nav-item${isActive ? " active" : ""}`}
                 >
                   <span style={{ flexShrink: 0 }}>{item.icon}</span>

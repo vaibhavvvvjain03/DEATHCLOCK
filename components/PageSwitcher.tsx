@@ -4,10 +4,10 @@ import { useEffect, useState, Suspense } from "react";
 import { motion } from "framer-motion";
 
 const PAGES = [
-  { label: "SYSTEM", path: "/" },
-  { label: "DOSSIER", path: "/?dossier=true" },
-  { label: "SCANNING", path: "/scanning" },
-  { label: "REPORT", path: "/dossier" },
+  { label: "BOOT", path: "/" },
+  { label: "SYSTEM", path: "/?dossier=true" },
+  { label: "DOSSIER", path: "/dossier" },
+  { label: "VERDICT", path: "/dossier?tab=VERDICT" },
 ];
 
 function PageSwitcherContent() {
@@ -17,16 +17,17 @@ function PageSwitcherContent() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const isDossier = searchParams.get("dossier") === "true";
-  
-  let activeIndex = PAGES.findIndex((p) => {
-    if (pathname === "/") {
-      if (isDossier && p.path === "/?dossier=true") return true;
-      if (!isDossier && p.path === "/") return true;
-      return false;
-    }
-    return p.path === pathname;
-  });
+  let activeIndex = 0;
+  if (pathname === "/") {
+    if (searchParams.get("dossier") === "true") activeIndex = 1;
+    else activeIndex = 0;
+  } else if (pathname.startsWith("/audit") || pathname.startsWith("/scanning")) {
+    activeIndex = 1; // still in the system flow
+  } else if (pathname.startsWith("/dossier")) {
+    const tab = searchParams.get("tab");
+    if (tab === "VERDICT" || tab === "ARCHIVE") activeIndex = 3;
+    else activeIndex = 2;
+  }
 
   if (activeIndex === -1) activeIndex = 0;
 
@@ -42,6 +43,7 @@ function PageSwitcherContent() {
 
   const navigate = (path: string) => {
     const city = localStorage.getItem("dc_city");
+
     if (!city && path !== "/" && path !== "/?dossier=true") {
       setError("ENTER CITY OR STATE NAME FIRST");
       setTimeout(() => setError(null), 3000);

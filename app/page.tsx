@@ -49,8 +49,17 @@ const SUGGESTIONS = [
 
 function LandingPageContent() {
   const router = useRouter();
-  const [isLanding, setIsLanding] = useState(true);
+  const searchParams = useSearchParams();
+  const [isLanding, setIsLanding] = useState(searchParams.get("dossier") !== "true");
   
+  useEffect(() => {
+    if (searchParams.get("dossier") === "true") {
+      setIsLanding(false);
+    } else {
+      setIsLanding(true);
+    }
+  }, [searchParams]);
+
   const [city, setCity] = useState("");
   const [focused, setFocused] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -91,12 +100,15 @@ function LandingPageContent() {
   useEffect(() => {
     if (isLanding) {
       const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Enter") setIsLanding(false);
+        if (e.key === "Enter") {
+          setIsLanding(false);
+          router.push("/?dossier=true", { scroll: false });
+        }
       };
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
     }
-  }, [isLanding]);
+  }, [isLanding, router]);
 
   const filteredSuggestions = SUGGESTIONS.filter(
     (s) => city.trim() && s.toLowerCase().startsWith(city.trim().toLowerCase())

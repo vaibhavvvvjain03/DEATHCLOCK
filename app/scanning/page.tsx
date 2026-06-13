@@ -1,7 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Radar from "@/components/Radar";
+import { CarbonData } from "@/lib/types";
+import { FALLBACK_CARBON_DATA } from "@/lib/constants";
+
+import { Suspense } from "react";
 
 const SCAN_LINES = [
   { label: "ACCESSING RECORD", value: "RECORD LOCATED", color: "#ffffff", delay: 150 },
@@ -38,13 +42,17 @@ function formatSecondsToTime(seconds: number): string {
   return `${yrs}Y ${days}D ${hh}:${mm}:${ss}`;
 }
 
-export default function ScanningPage() {
+function ScanningContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get("demo") === "true";
+  
   const [city, setCity] = useState("");
   const [revealedLines, setRevealedLines] = useState<number[]>([]);
-  const [apiData, setApiData] = useState<any>(null);
+  const [apiData, setApiData] = useState<CarbonData | null>(null);
   const [radarSize, setRadarSize] = useState(280);
   const [isMobile, setIsMobile] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
   const navigated = useRef(false);
 
   const [fetchComplete, setFetchComplete] = useState(false);
@@ -75,30 +83,71 @@ export default function ScanningPage() {
   // Fetch carbon data in background
   useEffect(() => {
     if (!city) return;
-    fetch("/api/carbon", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ location: city }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
+    
+    if (isDemo) {
+      const fallback = {
+        ...FALLBACK_CARBON_DATA,
+        resolvedLocation: city.toUpperCase(),
+        resolvedCountry: "UNKNOWN DETECTED",
+        contextSentence: "Carbon telemetry is running in DEMO mode.",
+      };
+      setApiData(fallback);
+      localStorage.setItem("dc_data", JSON.stringify(fallback));
+      setFetchComplete(true);
+      return;
+    }
+
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      abortController.abort();
+      setFetchError(true);
+    }, 8000);
+
+    const fetchData = async () => {
+      try {
+        const res = await fetch("/api/carbon", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ location: city }),
+          signal: abortController.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
+        const data = await res.json();
         setApiData(data);
         localStorage.setItem("dc_data", JSON.stringify(data));
-      })
-      .catch(() => {
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          console.warn('Fetch took longer than 8 seconds. Using cached/fallback data.');
+        } else {
+          console.error('Fetch failed:', err);
+        }
+        setFetchError(true);
         const fallback = {
-          remainingBudgetTonnes: 600000000,
-          annualEmissionRate: 50000000,
-          secondsRemaining: 236520000,
-          contextSentence: "Carbon telemetry is relying on fallback estimates.",
+          ...FALLBACK_CARBON_DATA,
+          resolvedLocation: city.toUpperCase(),
+          resolvedCountry: "UNKNOWN DETECTED",
+          contextSentence: "CONNECTION SLOW — USING CACHED DATA",
         };
         setApiData(fallback);
         localStorage.setItem("dc_data", JSON.stringify(fallback));
-      })
-      .finally(() => {
+      } finally {
         setFetchComplete(true);
-      });
-  }, [city]);
+      }
+    };
+
+    fetchData();
+    
+    return () => {
+      clearTimeout(timeoutId);
+      abortController.abort();
+    };
+  }, [city, isDemo]);
 
   // Staggered line reveal
   useEffect(() => {
@@ -166,8 +215,29 @@ export default function ScanningPage() {
         display: "flex",
         flexDirection: isMobile ? "column" : "row",
         alignItems: "stretch",
+        position: "relative",
       }}
     >
+      {isDemo && (
+        <div
+          style={{
+            position: "absolute",
+            top: 20,
+            right: 20,
+            background: "#ffaa0033",
+            border: "1px solid #ffaa00",
+            color: "#ffaa00",
+            padding: "4px 8px",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            letterSpacing: 2,
+            zIndex: 100,
+          }}
+        >
+          DEMO MODE
+        </div>
+      )}
+
       {/* ── LEFT: RADAR ── */}
       {!isMobile && (
         <div
@@ -351,5 +421,17 @@ export default function ScanningPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ScanningPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: "100vh", background: "#0c0c0c", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ color: "#ffaa00", fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: 2 }}>LOADING SYSTEM...</div>
+      </div>
+    }>
+      <ScanningContent />
+    </Suspense>
   );
 }
