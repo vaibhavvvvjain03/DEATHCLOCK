@@ -73,14 +73,17 @@ export async function POST(request: Request) {
 
     const prompt = `For the city ${location}, provide carbon data as JSON only, no other text:
 {
-  "remainingBudgetTonnes": number (city's remaining CO2 budget in tonnes before 1.5C breach),
-  "annualEmissionRate": number (annual CO2 in tonnes),
-  "secondsRemaining": number (seconds until budget depleted at current rate),
-  "contextSentence": string (one sentence about this city's specific climate risk, max 20 words),
-  "survivalProbability": number (0-100),
-  "populationAtRisk": string (e.g. '14.8 million'),
-  "annualEmissions": string (e.g. '25.0MT CO2'),
-  "threatClass": string (one of: ALPHA-1 CRITICAL, BETA-2 SEVERE, GAMMA-3 HIGH, DELTA-4 MODERATE)
+  "cityName": string (the city name as provided),
+  "country": string (the country this city is in),
+  "region": string (state or region),
+  "remainingBudgetTonnes": number,
+  "annualEmissionRate": number,
+  "secondsRemaining": number,
+  "contextSentence": string,
+  "survivalProbability": number,
+  "populationAtRisk": string,
+  "annualEmissions": string,
+  "threatClass": string
 }`;
 
     const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
@@ -103,8 +106,6 @@ export async function POST(request: Request) {
     let parsedResult;
     try {
       parsedResult = JSON.parse(resultText);
-      parsedResult.resolvedLocation = location.toUpperCase();
-      parsedResult.resolvedCountry = location.toUpperCase();
     } catch (parseError) {
       console.error("Gemini returned invalid JSON for carbon:", resultText, parseError);
       throw new Error("Failed to parse model response as JSON.");
@@ -132,8 +133,7 @@ export async function POST(request: Request) {
     const cityFallback = getCityFallback(locStr);
     if (cityFallback) {
       return NextResponse.json({
-        resolvedLocation: locStr.toUpperCase(),
-        resolvedCountry: locStr.toUpperCase(),
+        cityName: locStr.toUpperCase(),
         ...cityFallback
       }, {
         status: 200,
@@ -143,8 +143,7 @@ export async function POST(request: Request) {
 
     // 2. Otherwise use generic fallback
     return NextResponse.json({
-      resolvedLocation: locStr.toUpperCase(),
-      resolvedCountry: "UNKNOWN DETECTED",
+      cityName: locStr.toUpperCase(),
       ...FALLBACK_CARBON_DATA
     }, {
       status: 200,

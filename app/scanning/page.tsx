@@ -7,6 +7,52 @@ import { FALLBACK_CARBON_DATA } from "@/lib/constants";
 
 import { Suspense } from "react";
 
+const CITY_COUNTRIES: Record<string, string> = {
+  'bangalore': 'INDIA',
+  'mumbai': 'INDIA',
+  'delhi': 'INDIA',
+  'chennai': 'INDIA',
+  'hyderabad': 'INDIA',
+  'kolkata': 'INDIA',
+  'pune': 'INDIA',
+  'ahmedabad': 'INDIA',
+  'jaipur': 'INDIA',
+  'surat': 'INDIA',
+  'karnataka': 'INDIA',
+  'maharashtra': 'INDIA',
+  'tamil nadu': 'INDIA',
+  'kerala': 'INDIA',
+  'rajasthan': 'INDIA',
+  'gujarat': 'INDIA',
+  'london': 'UNITED KINGDOM',
+  'new york': 'UNITED STATES',
+  'los angeles': 'UNITED STATES',
+  'beijing': 'CHINA',
+  'shanghai': 'CHINA',
+  'tokyo': 'JAPAN',
+  'paris': 'FRANCE',
+  'berlin': 'GERMANY',
+  'dubai': 'UAE',
+  'singapore': 'SINGAPORE',
+  'sydney': 'AUSTRALIA',
+  'toronto': 'CANADA',
+  'lagos': 'NIGERIA',
+  'cairo': 'EGYPT',
+  'jakarta': 'INDONESIA',
+  'karachi': 'PAKISTAN',
+  'dhaka': 'BANGLADESH',
+  'bangkok': 'THAILAND',
+  'seoul': 'SOUTH KOREA',
+  'mexico city': 'MEXICO',
+  'sao paulo': 'BRAZIL',
+  'buenos aires': 'ARGENTINA',
+};
+
+function getCountry(cityName: string): string {
+  const key = cityName.toLowerCase().trim();
+  return CITY_COUNTRIES[key] || 'INDIA';
+}
+
 const SCAN_LINES = [
   { label: "ACCESSING RECORD", value: "RECORD LOCATED", color: "#ffffff", delay: 150 },
   { label: "SUBJECT", value: "__CITY__", color: "#ffffff", delay: 300 },
@@ -87,8 +133,7 @@ function ScanningContent() {
     if (isDemo) {
       const fallback = {
         ...FALLBACK_CARBON_DATA,
-        resolvedLocation: city.toUpperCase(),
-        resolvedCountry: "UNKNOWN DETECTED",
+        cityName: city.toUpperCase(),
         contextSentence: "Carbon telemetry is running in DEMO mode.",
       };
       setApiData(fallback);
@@ -130,8 +175,7 @@ function ScanningContent() {
         setFetchError(true);
         const fallback = {
           ...FALLBACK_CARBON_DATA,
-          resolvedLocation: city.toUpperCase(),
-          resolvedCountry: "UNKNOWN DETECTED",
+          cityName: city.toUpperCase(),
           contextSentence: "CONNECTION SLOW — USING CACHED DATA",
         };
         setApiData(fallback);
@@ -187,8 +231,14 @@ function ScanningContent() {
   const statusText = STATUS_TEXTS[Math.min(revealedLines.length, STATUS_TEXTS.length - 1)];
 
   const getLineValue = (line: (typeof SCAN_LINES)[0]) => {
-    if (line.value === "__CITY__") return apiData?.resolvedLocation?.toUpperCase() || city.toUpperCase();
-    if (line.value === "__COUNTRY__") return apiData?.resolvedCountry?.toUpperCase() || "DETECTING...";
+    if (line.value === "__CITY__") return (apiData?.cityName || city).toUpperCase();
+    if (line.value === "__COUNTRY__") {
+      const apiCountry = apiData?.country;
+      if (apiCountry && apiCountry !== "UNKNOWN DETECTED" && apiCountry !== "UNKNOWN") {
+        return apiCountry.toUpperCase();
+      }
+      return getCountry(city).toUpperCase();
+    }
     if (line.value === "__BUDGET__") {
       if (apiData?.remainingBudgetTonnes) {
         return `${(apiData.remainingBudgetTonnes / 1e9).toFixed(1)}B TONNES CO₂`;
