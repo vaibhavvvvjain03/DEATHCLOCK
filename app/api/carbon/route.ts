@@ -32,6 +32,7 @@ export async function OPTIONS() {
  * Uses rate limiting, input sanitization, and caching.
  */
 export async function POST(request: Request) {
+  let requestedLocation = "UNKNOWN";
   try {
     // Rate limit check
     const ip = request.headers.get("x-forwarded-for") || "unknown-ip";
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
     let location = body.location;
     location = location.replace(/<[^>]*>/g, ""); // Strip HTML tags
     location = location.slice(0, CARBON_CONSTANTS.MAX_CITY_NAME_LENGTH); // Limit length
+    requestedLocation = location;
     
     if (!location.trim()) {
       return NextResponse.json(
@@ -121,13 +123,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("Error in /api/carbon, falling back to estimates:", error);
     
-    // We try to extract location if possible, otherwise UNKNOWN
-    let locStr = "UNKNOWN";
-    try {
-      // In case body was partially parsed
-      const maybeBody = await request.clone().json().catch(() => null);
-      if (maybeBody && maybeBody.location) locStr = maybeBody.location;
-    } catch (e) {}
+    let locStr = requestedLocation;
 
     // 1. Try city-specific fallback first
     const cityFallback = getCityFallback(locStr);
