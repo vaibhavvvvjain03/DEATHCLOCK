@@ -3,6 +3,9 @@ import { callGemini } from "../../../lib/gemini";
 import { checkRateLimit } from "../../../lib/rateLimit";
 import { getCached, setCached } from "../../../lib/cache";
 import { CARBON_CONSTANTS, FALLBACK_CARBON_DATA } from "../../../lib/constants";
+import { getCityFallback } from "../../../lib/cityFallbacks";
+
+export const maxDuration = 30;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -68,19 +71,43 @@ export async function POST(request: Request) {
       });
     }
 
-    const prompt = `You are a climate scientist and geolocation expert. The user has provided the location name: "${location}". First, identify if this is a state, city, or country, and determine its corresponding overarching country (if it is a country, just use that country). Then calculate: (1) remaining carbon budget in tonnes CO2 before this specific region crosses the ${CARBON_CONSTANTS.CRITICAL_TEMP_THRESHOLD}°C irreversible threshold based on IPCC and localized data, (2) current annual regional emission rate in tonnes CO2, (3) therefore exact seconds remaining in the carbon budget countdown. Return ONLY valid JSON: { "resolvedLocation": string (the properly formatted name of the place), "resolvedCountry": string (the country it belongs to), "remainingBudgetTonnes": number, "annualEmissionRate": number, "secondsRemaining": number, "contextSentence": string (one dramatic sentence about this specific region's climate risk) }`;
+    const prompt = `For the city ${location}, provide carbon data as JSON only, no other text:
+{
+  "remainingBudgetTonnes": number (city's remaining CO2 budget in tonnes before 1.5C breach),
+  "annualEmissionRate": number (annual CO2 in tonnes),
+  "secondsRemaining": number (seconds until budget depleted at current rate),
+  "contextSentence": string (one sentence about this city's specific climate risk, max 20 words),
+  "survivalProbability": number (0-100),
+  "populationAtRisk": string (e.g. '14.8 million'),
+  "annualEmissions": string (e.g. '25.0MT CO2'),
+  "threatClass": string (one of: ALPHA-1 CRITICAL, BETA-2 SEVERE, GAMMA-3 HIGH, DELTA-4 MODERATE)
+}`;
 
-    const resultText = await callGemini(prompt);
+    const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+    let resultText = "";
+    
+    for (const model of models) {
+      try {
+        resultText = await callGemini(prompt, model);
+        break; // Success
+      } catch (error) {
+        console.error(`Model ${model} failed:`, error);
+        continue;
+      }
+    }
+    
+    if (!resultText) {
+      throw new Error("All Gemini models failed");
+    }
     
     let parsedResult;
     try {
       parsedResult = JSON.parse(resultText);
+      parsedResult.resolvedLocation = location.toUpperCase();
+      parsedResult.resolvedCountry = location.toUpperCase();
     } catch (parseError) {
       console.error("Gemini returned invalid JSON for carbon:", resultText, parseError);
-      return NextResponse.json(
-        { error: "Failed to parse model response as JSON.", raw: resultText },
-        { status: 502, headers: securityHeaders }
-      );
+      throw new Error("Failed to parse model response as JSON.");
     }
 
     // Save to Cache
@@ -101,6 +128,20 @@ export async function POST(request: Request) {
       if (maybeBody && maybeBody.location) locStr = maybeBody.location;
     } catch (e) {}
 
+    // 1. Try city-specific fallback first
+    const cityFallback = getCityFallback(locStr);
+    if (cityFallback) {
+      return NextResponse.json({
+        resolvedLocation: locStr.toUpperCase(),
+        resolvedCountry: locStr.toUpperCase(),
+        ...cityFallback
+      }, {
+        status: 200,
+        headers: securityHeaders,
+      });
+    }
+
+    // 2. Otherwise use generic fallback
     return NextResponse.json({
       resolvedLocation: locStr.toUpperCase(),
       resolvedCountry: "UNKNOWN DETECTED",

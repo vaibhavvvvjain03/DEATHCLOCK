@@ -3,6 +3,8 @@ import { callGemini } from "../../../lib/gemini";
 import { checkRateLimit } from "../../../lib/rateLimit";
 import { CARBON_CONSTANTS, FALLBACK_SWAPS } from "../../../lib/constants";
 
+export const maxDuration = 30;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",

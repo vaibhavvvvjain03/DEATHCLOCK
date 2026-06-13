@@ -4,13 +4,13 @@ import { CARBON_CONSTANTS } from "./constants";
  * Shared utility for communicating with the Gemini 3.5 Flash API.
  */
 
-export async function callGemini(prompt: string): Promise<string> {
+export async function callGemini(prompt: string, model: string = "gemini-2.0-flash"): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === "your_key_here") {
     throw new Error("Gemini API key is not configured. Please set GEMINI_API_KEY in your environment.");
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const payload = {
     contents: [
