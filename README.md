@@ -55,7 +55,7 @@ A radar sweep animation plays while Gemini API processes the city. Classified da
 
 **TIMELINE tab:** The live death clock — a real-time countdown showing exactly how long the city's carbon budget has remaining before irreversible threshold breach. This is the emotional core of the product. The clock ticks every second.
 
-**AUDIT tab:** An 18-question personal lifestyle assessment across 6 categories:
+**AUDIT tab:** An -question personal lifestyle assessment across 6 categories:
 - Movement (commute, vehicle, flights, deliveries)
 - Food (meat consumption, sourcing, waste)
 - Home (AC usage, electricity, renewables)
@@ -74,6 +74,24 @@ Each answer instantly updates the user's personal burn rate — showing exactly 
 Users commit to missions. A share card is generated for social broadcast.
 
 ---
+## Climate Intelligence Memory System
+
+Traditional carbon calculators provide a one-time snapshot.
+
+DEATHCLOCK introduces a persistent Climate Intelligence Memory System that allows users to measure behavioral change over time.
+
+Every completed investigation is archived and compared against future assessments.
+
+The system tracks:
+
+- Previous burn rates
+- Current burn rates
+- Carbon threat reduction
+- Timeline recovery achieved
+- Mission effectiveness
+- Historical investigations
+
+This transforms DEATHCLOCK from a carbon calculator into a climate behavior tracking platform.
 
 ## Technical Approach
 
@@ -110,6 +128,43 @@ components/
 - **Canvas share card** — generated client-side, no server dependency for social sharing
 
 ---
+## Investigation Archive
+
+The Archive functions as the Climate Intelligence Bureau's historical record system.
+
+Users can revisit previous investigations and monitor their environmental progress over time.
+
+Features include:
+
+### Investigation History
+
+- Previous investigation dates
+- Historical burn rates
+- Threat classifications
+- Timeline recovery achievements
+
+### Recovery Source Breakdown
+
+The platform automatically identifies which lifestyle categories contributed most to improvement.
+
+Examples:
+
+- Movement
+- Food
+- Home Energy
+- Consumption
+- Water & Waste
+- Work
+
+### Threat Evolution
+
+Users can monitor changes between threat classifications over multiple investigations.
+
+### Mission Effectiveness
+
+Mission outcomes are evaluated based on actual changes in audit responses and resulting timeline recovery.
+
+---
 
 ## Assumptions Made
 
@@ -117,6 +172,34 @@ components/
 2. Personal burn rate calculations use established carbon accounting factors (IPCC emission factors per activity type) hardcoded into the question bank
 3. "Survival probability" is a simplified metric representing the probability of staying below 1.5°C given current trajectory — not a formal scientific probability
 4. City-level data covers major global cities and all Indian states — smaller cities fallback to regional estimates
+
+---
+## Why Reassessments Matter
+
+Most carbon footprint calculators are used once and forgotten.
+
+DEATHCLOCK is designed for repeated reassessment.
+
+The intended user journey is:
+
+1. Complete an investigation
+2. Receive personalized intervention missions
+3. Apply those changes in real life
+4. Return later
+5. Complete another investigation
+6. Measure actual improvement
+
+The platform then calculates:
+
+- Behavioral changes detected
+- Carbon threat reduction
+- Timeline recovery achieved
+- Mission effectiveness
+- Historical progress
+
+If no meaningful changes are made, the system transparently reports no improvement.
+
+This creates accountability and encourages long-term sustainable behavior.
 
 ---
 
@@ -170,6 +253,78 @@ Get a free API key at [Google AI Studio](https://aistudio.google.com)
 - Mobile layout optimised for 375px and above
 
 ---
+## Accessibility
+
+DEATHCLOCK is designed to be accessible across devices and input methods.
+
+Implemented accessibility features include:
+
+- Semantic HTML landmarks
+- Keyboard navigation support
+- ARIA labels for interactive controls
+- Accessible dialogs and modals
+- Focus-visible states
+- Screen-reader friendly navigation
+- Skip-to-content navigation
+- Responsive layouts
+
+Accessibility remains an ongoing area of improvement.
+
+---
+
+## Testing
+
+The project includes automated testing for critical application logic.
+
+Covered systems include:
+
+- Carbon burn rate calculations
+- Threat classification logic
+- Mission generation logic
+- Investigation archive comparisons
+- Memory persistence utilities
+- Timeline recovery calculations
+
+Run tests:
+
+```bash
+npm test
+
+
+---
+
+## Methodology
+
+DEATHCLOCK combines AI-generated intelligence with deterministic carbon accounting logic.
+
+### City Intelligence
+
+Gemini API generates:
+
+- Carbon budget estimates
+- Threat classifications
+- Climate intelligence summaries
+- Personalized intervention missions
+
+### Carbon Burn Rate
+
+Burn rate calculations are derived from established carbon accounting principles using activity-specific emission factors.
+
+Categories include:
+
+- Transportation
+- Food Consumption
+- Residential Energy
+- Consumer Purchases
+- Water & Waste
+- Work Patterns
+
+### Timeline Recovery
+
+Timeline recovery estimates represent projected reductions in environmental impact resulting from behavioral improvements between investigations.
+
+The purpose is educational and motivational rather than scientific forecasting.
+---
 
 ## Challenge Alignment
 
@@ -183,6 +338,24 @@ Get a free API key at [Google AI Studio](https://aistudio.google.com)
 | Real-world usability | Works for 195 countries + all Indian states; mobile responsive |
 
 ---
+## Screenshots
+
+### Landing Page
+![Landing Page](screenshots/landing.png)
+
+### City Intelligence Dossier
+![Dossier](screenshots/dossier.png)
+
+### Personal Carbon Audit
+![Audit](screenshots/audit.png)
+
+### Personalized Verdict
+![Verdict](screenshots/verdict.png)
+
+### Investigation Archive
+![Archive](screenshots/archive.png)
+
+---
 
 ## Built With
 
@@ -194,7 +367,19 @@ Get a free API key at [Google AI Studio](https://aistudio.google.com)
 - [IBM Plex Mono / IBM Plex Sans](https://fonts.google.com/specimen/IBM+Plex+Mono) — Typography
 
 ---
+## Future Roadmap
 
+Planned improvements include:
+
+- Cloud-synced investigation history
+- Multi-device profile support
+- AI-powered sustainability advisor
+- Community climate leaderboards
+- Regional climate comparison reports
+- Advanced emissions forecasting
+- Expanded city intelligence coverage
+- Enhanced accessibility support
+---
 ## Author
 
 **Vaibhav A Jain**  

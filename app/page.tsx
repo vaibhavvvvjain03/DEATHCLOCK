@@ -261,7 +261,9 @@ function LandingPageContent() {
               </motion.div>
 
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
+                <h1 className="sr-only">DEATHCLOCK</h1>
                 <motion.div
+                  aria-hidden="true"
                   layoutId="title-death"
                   transition={{ type: "tween", ease: "easeInOut", duration: 0.6 }}
                   style={{
@@ -279,6 +281,7 @@ function LandingPageContent() {
                   DEATH
                 </motion.div>
                 <motion.div
+                  aria-hidden="true"
                   layoutId="title-clock"
                   transition={{ type: "tween", ease: "easeInOut", duration: 0.6 }}
                   style={{
@@ -371,7 +374,9 @@ function LandingPageContent() {
                   }}
                 >
                   <div>
+                    <h1 className="sr-only">DEATHCLOCK</h1>
                     <motion.div
+                      aria-hidden="true"
                       layoutId="title-death"
                       transition={{ type: "tween", ease: "easeInOut", duration: 0.6 }}
                       style={{
@@ -388,6 +393,7 @@ function LandingPageContent() {
                       DEATH
                     </motion.div>
                     <motion.div
+                      aria-hidden="true"
                       layoutId="title-clock"
                       transition={{ type: "tween", ease: "easeInOut", duration: 0.6 }}
                       style={{
@@ -518,6 +524,7 @@ function LandingPageContent() {
                       <div className="doc-label" style={{ color: "#aaaaaa" }}>ESTIMATED BREACH</div>
                       <div
                         className="doc-value"
+                        aria-live="polite"
                         style={{
                           color: "#ff4444",
                           fontSize: 20,
@@ -633,7 +640,9 @@ function LandingPageContent() {
                     </div>
 
                     {/* Input field */}
+                    <label htmlFor="city-input" className="sr-only">Enter state, region, or country</label>
                     <input
+                      id="city-input"
                       ref={inputRef}
                       type="text"
                       value={city}
@@ -663,6 +672,7 @@ function LandingPageContent() {
 
                     {/* RETRIEVE button */}
                     <button
+                      aria-label="Retrieve City Dossier"
                       onClick={handleRetrieve}
                       style={{
                         background: focused ? "#ff4444" : "#ff4444cc",
@@ -769,6 +779,9 @@ function LandingPageContent() {
               <AnimatePresence>
                 {showReturnModal && (profile || auditProgress) && (
                   <motion.div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="return-modal-title"
                     initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
                     animate={{ opacity: 1, backdropFilter: "blur(8px)" }}
                     exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
@@ -810,7 +823,7 @@ function LandingPageContent() {
                         }}
                       >
                         <span className="live-dot-green" style={{ width: 8, height: 8 }} />
-                        RETURNING SUBJECT DETECTED
+                        <span id="return-modal-title">RETURNING SUBJECT DETECTED</span>
                       </div>
                       
                       <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 32 }}>

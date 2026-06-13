@@ -55,7 +55,8 @@ function PageSwitcherContent() {
   return (
     <>
       {/* Right nav dots */}
-      <div
+      <nav
+        aria-label="Primary Navigation"
         style={{
           position: "fixed",
           right: 24,
@@ -104,8 +105,8 @@ function PageSwitcherContent() {
                 }}
               >
                 <button
+                  aria-label={page.label}
                   onClick={() => navigate(page.path)}
-                  tabIndex={-1}
                   style={{
                     width: 8,
                     height: 8,
@@ -138,7 +139,7 @@ function PageSwitcherContent() {
             </div>
           );
         })}
-      </div>
+      </nav>
 
       {error && (
         <div

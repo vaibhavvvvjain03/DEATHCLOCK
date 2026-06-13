@@ -62,10 +62,15 @@ export default function RootLayout({
           {/* Custom cursor */}
           <Cursor />
 
+          {/* Skip link */}
+          <a href="#main-content" className="skip-link">Skip to main content</a>
+
           {/* Page switcher + nav dots */}
           <PageSwitcher />
 
-          {children}
+          <main id="main-content">
+            {children}
+          </main>
         </ErrorBoundary>
       </body>
     </html>

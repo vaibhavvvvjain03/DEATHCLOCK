@@ -55,7 +55,7 @@ Return ONLY JSON: { question: string, options: [string, string, string, string],
       status: 200,
       headers: corsHeaders,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in /api/questions, falling back to static questions:", error);
     // Return a fallback question so the questionnaire can proceed when hitting rate limits (429) or high demand (503)
     return NextResponse.json({

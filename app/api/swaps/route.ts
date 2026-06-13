@@ -82,7 +82,7 @@ export async function POST(request: Request) {
       status: 200,
       headers: securityHeaders,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in /api/swaps, falling back to static swaps:", error);
     
     // Create a modified fallback with the sanitized city name

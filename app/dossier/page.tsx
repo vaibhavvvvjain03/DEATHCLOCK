@@ -268,11 +268,11 @@ export default function DossierPage() {
       const swapList = data.swaps || [];
       if (swapList.length === 0) throw new Error("Empty swaps from API");
       
-      const newMissions: MissionRecord[] = swapList.map((s: any, i: number) => ({
+      const newMissions: MissionRecord[] = swapList.map((s: Partial<MissionRecord>, i: number) => ({
         id: `msn_${Date.now()}_${i}`,
         ...s,
         status: "pending"
-      }));
+      } as MissionRecord));
       setMissions(newMissions);
       
       MemoryService.saveProfile(createProfileObject(newMissions));
@@ -631,6 +631,7 @@ export default function DossierPage() {
           className="btn-ghost"
           onClick={() => setTab("EVIDENCE")}
           style={{ width: isMobile ? "100%" : "auto", padding: "12px 32px" }}
+          aria-label="Next step: Evidence"
         >
           NEXT ›
         </button>
@@ -784,6 +785,7 @@ export default function DossierPage() {
           className="btn-ghost"
           onClick={() => setTab("TIMELINE")}
           style={{ width: isMobile ? "100%" : "auto", padding: "12px 32px" }}
+          aria-label="Next step: Timeline"
         >
           NEXT ›
         </button>
@@ -953,6 +955,7 @@ export default function DossierPage() {
               letterSpacing: 4,
               boxShadow: "0 0 20px rgba(255, 68, 68, 0.2)"
             }}
+            aria-label="Enter Audit Mode"
           >
             ENTER AUDIT MODE ›
           </button>
@@ -986,6 +989,7 @@ export default function DossierPage() {
             className="btn-primary"
             onClick={() => setShowBriefing(false)}
             style={{ padding: "16px", fontSize: 16, letterSpacing: 3 }}
+            aria-label="Commence Audit"
           >
             COMMENCE AUDIT
           </button>
@@ -1033,7 +1037,7 @@ export default function DossierPage() {
           >
             ✓ AUDIT COMPLETE
           </div>
-          <button className="btn-ghost" onClick={() => setTab("VERDICT")}>
+          <button className="btn-ghost" onClick={() => setTab("VERDICT")} aria-label="View Verdict">
             VIEW VERDICT ›
           </button>
         </div>
@@ -1118,7 +1122,6 @@ export default function DossierPage() {
                 onClick={() => {
                   setCatIdx(0);
                   setQIdx(0);
-                  setTotalBurnRate(0);
                   setAnswers({});
                   setAuditDone(false);
                   setMissions([]);
@@ -1134,6 +1137,7 @@ export default function DossierPage() {
                   letterSpacing: 2,
                   textDecoration: "underline",
                 }}
+                aria-label="Restart Audit"
               >
                 [ RESTART AUDIT ]
               </button>
@@ -1213,6 +1217,7 @@ export default function DossierPage() {
                   key={opt.value}
                   onClick={() => handleAnswer(opt.value, opt.burnRate)}
                   disabled={processingQ}
+                  aria-label={`Select option ${letters[i]}: ${opt.label}`}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -1369,7 +1374,7 @@ export default function DossierPage() {
   };
 
   const renderVerdict = () => {
-    let topReductions: { name: string; delta: number; pct: number }[] = [];
+    const topReductions: { name: string; delta: number; pct: number }[] = [];
     let totalRecovery = 0;
     const prevInv = profile?.pastInvestigations?.[profile.pastInvestigations.length - 1];
 
@@ -1380,7 +1385,7 @@ export default function DossierPage() {
         const curr = currentScores[key];
         const delta = prev - curr;
         if (delta > 0) {
-          const idx = catKeys.indexOf(key as any);
+          const idx = catKeys.indexOf(key as (typeof CATEGORY_KEYS)[number]);
           topReductions.push({
             name: CATEGORY_NAMES[idx] || key,
             delta,
@@ -1686,6 +1691,7 @@ export default function DossierPage() {
         className="btn-primary"
         style={{ width: "100%", marginTop: 8 }}
         onClick={generateShareCard}
+        aria-label="Broadcast Verdict"
       >
         BROADCAST VERDICT
       </button>
@@ -1693,6 +1699,7 @@ export default function DossierPage() {
         className="btn-secondary"
         style={{ width: "100%", marginTop: 8, background: "transparent", border: "1px solid #333", color: "#e0e0e0", padding: "16px", fontFamily: "var(--font-mono)", letterSpacing: 2 }}
         onClick={() => handleTabChange("ARCHIVE")}
+        aria-label="View Archived Intelligence"
       >
         VIEW ARCHIVED INTELLIGENCE
       </button>
@@ -1701,7 +1708,7 @@ export default function DossierPage() {
   };
 
   const renderArchive = () => {
-    let recoverySources: { category: string; delta: number }[] = [];
+    const recoverySources: { category: string; delta: number }[] = [];
     let behaviorChanges: string[] = [];
     
     if (profile && profile.pastInvestigations && profile.pastInvestigations.length > 0) {
@@ -1925,6 +1932,7 @@ export default function DossierPage() {
         overflow: "hidden",
       }}
     >
+      <h1 className="sr-only">City Dossier: {city}</h1>
       {/* ── HEADER ── */}
       <div
         style={{
@@ -1989,6 +1997,7 @@ export default function DossierPage() {
                 <button
                   key={item.id}
                   onClick={() => handleTabChange(item.id)}
+                  aria-label={`Switch to ${item.label} tab`}
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: 16,
@@ -2030,6 +2039,7 @@ export default function DossierPage() {
                   key={item.id}
                   onClick={() => handleTabChange(item.id)}
                   className={`nav-item${isActive ? " active" : ""}`}
+                  aria-label={`Switch to ${item.label} tab`}
                 >
                   <span style={{ flexShrink: 0 }}>{item.icon}</span>
                   <span style={{ flex: 1 }}>{item.label}</span>
@@ -2080,7 +2090,7 @@ export default function DossierPage() {
             <div style={{ color: "#ffffff", fontSize: 16, marginBottom: 24, lineHeight: 1.6, textTransform: "uppercase" }}>
               YOUR PERSONAL BURNOUT IS <span style={{ color: "#ffaa00" }}>{totalBurnRate.toLocaleString()} SECONDS PER DAY</span>, CAUSING {city.toUpperCase()} TO DEGRADE ITS LIFE FASTER.
             </div>
-            <button className="btn-primary" onClick={() => setShowBurnoutPopup(false)}>ACKNOWLEDGE</button>
+            <button className="btn-primary" onClick={() => setShowBurnoutPopup(false)} aria-label="Acknowledge critical burnout">ACKNOWLEDGE</button>
           </div>
         </div>
       )}

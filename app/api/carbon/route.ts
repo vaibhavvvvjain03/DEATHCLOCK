@@ -120,10 +120,10 @@ export async function POST(request: Request) {
       status: 200,
       headers: securityHeaders,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in /api/carbon, falling back to estimates:", error);
     
-    let locStr = requestedLocation;
+    const locStr = requestedLocation;
 
     // 1. Try city-specific fallback first
     const cityFallback = getCityFallback(locStr);

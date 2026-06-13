@@ -259,6 +259,7 @@ export default function AuditPage() {
         overflow: "hidden",
       }}
     >
+      <h1 className="sr-only">Audit Form: {city}</h1>
       {/* Top bar */}
       <div
         style={{
@@ -387,6 +388,7 @@ export default function AuditPage() {
                   key={opt.value}
                   onClick={() => handleSelect(opt.value, opt.burnRate)}
                   disabled={!!selectedOpt}
+                  aria-label={`Select option ${letter}: ${opt.label.replace(/^> /, "")}`}
                   initial={{ opacity: 0, x: -4 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: oi * 0.05 }}

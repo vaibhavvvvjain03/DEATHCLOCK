@@ -166,11 +166,11 @@ function ScanningContent() {
         const data = await res.json();
         setApiData(data);
         localStorage.setItem("dc_data", JSON.stringify(data));
-      } catch (err: any) {
-        if (err.name === 'AbortError') {
-          console.warn('Fetch took longer than 8 seconds. Using cached/fallback data.');
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          // Fetch took longer than 8 seconds. Using cached/fallback data.
         } else {
-          console.error('Fetch failed:', err);
+          // Fetch failed
         }
         setFetchError(true);
         const fallback = {
@@ -449,7 +449,13 @@ function ScanningContent() {
 
         {/* Progress bar */}
         <div style={{ marginBottom: 12 }}>
-          <div className="progress-track">
+          <div 
+            className="progress-track"
+            role="progressbar"
+            aria-valuenow={progressPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
             <div
               className="progress-fill"
               style={{ width: `${progressPct}%` }}
@@ -459,6 +465,7 @@ function ScanningContent() {
 
         {/* Status text */}
         <div
+          aria-live="polite"
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: 8,
