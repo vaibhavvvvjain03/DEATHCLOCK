@@ -118,7 +118,7 @@ describe("Memory System", () => {
       expect(retrieved?.pastInvestigations[0].city).toBe("OLD CITY");
       expect(retrieved?.pastInvestigations[0].burnRate).toBe(1800);
       // Ensure the old property is deleted
-      expect((retrieved as Record<string, unknown>).previousInvestigation).toBeUndefined();
+      expect((retrieved as unknown as Record<string, unknown>).previousInvestigation).toBeUndefined();
     });
 
     it("ensures pastInvestigations array exists if missing completely", () => {

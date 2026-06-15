@@ -56,9 +56,10 @@ export function generateArchiveMetrics(profile: ClimateProfile | null) {
     recoverySources.sort((a, b) => b.delta - a.delta);
 
     if (lastInv.answers && profile.answers) {
+      const lastAnswers: Record<string, string> = lastInv.answers;
       CATEGORY_KEYS.forEach(key => {
         QUESTION_BANK[key].forEach(q => {
-          const oldVal = lastInv.answers[q.id];
+          const oldVal = lastAnswers[q.id];
           const newVal = profile.answers[q.id];
           if (oldVal && newVal && oldVal !== newVal) {
             const oldOpt = q.options.find(o => o.value === oldVal);

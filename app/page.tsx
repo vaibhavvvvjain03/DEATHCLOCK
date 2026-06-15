@@ -12,7 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { MemoryService, ClimateProfile, AuditProgress } from "@/lib/memory-service";
 import { useLocalStorageState } from "@/hooks/useLocalStorageState";
 import { RedactedBar } from "@/components/ui/RedactedBar";
-import { Panel } from "@/components/ui/Panel";
+
 
 // Fixed breach date: 2033-06-11
 const BREACH_DATE = new Date("2033-06-11T00:00:00Z");

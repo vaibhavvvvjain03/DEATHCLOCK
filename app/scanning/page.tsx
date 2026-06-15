@@ -180,9 +180,9 @@ function ScanningContent() {
   const statusText = STATUS_TEXTS[Math.min(revealedLines.length, STATUS_TEXTS.length - 1)];
 
   const getLineValue = (line: (typeof SCAN_LINES)[0]) => {
-    if (line.value === "__CITY__") return (apiData?.cityName || city).toUpperCase();
+    if (line.value === "__CITY__") return (apiData?.resolvedLocation || city).toUpperCase();
     if (line.value === "__COUNTRY__") {
-      const apiCountry = apiData?.country;
+      const apiCountry = apiData?.resolvedCountry;
       if (apiCountry && apiCountry !== "UNKNOWN DETECTED" && apiCountry !== "UNKNOWN") {
         return apiCountry.toUpperCase();
       }

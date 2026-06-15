@@ -62,7 +62,7 @@ describe("getCityFallback", () => {
     ];
     Object.entries(CITY_FALLBACKS).forEach(([city, data]) => {
       requiredFields.forEach(field => {
-        expect(data).toHaveProperty(field), `${city} missing field: ${field}`;
+        expect(Object.prototype.hasOwnProperty.call(data, field)).toBe(true);
       });
     });
   });

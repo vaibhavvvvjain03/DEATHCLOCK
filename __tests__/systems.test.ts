@@ -50,7 +50,7 @@ describe("Archive System", () => {
       categoryScores: { movement: 150 },
       answers: { mov_1: "public_transit" }
     };
-    const result = generateArchiveMetrics(profile);
+    const result = generateArchiveMetrics(profile as unknown as import("../lib/memory-service").ClimateProfile);
     expect(result.recoverySources).toEqual([
       { category: "MOVEMENT", delta: 1150 }
     ]);
