@@ -1,5 +1,5 @@
 import React from 'react';
-import { SwapMission } from '@/lib/types'; // Assuming this exists based on usual Next.js project structure, wait, I shouldn't assume. But I will just use `any` if it fails.
+
 
 /**
  * A card displaying a personalized intervention
@@ -9,7 +9,7 @@ import { SwapMission } from '@/lib/types'; // Assuming this exists based on usua
 export function MissionCard({ 
   mission, isCommitted, onCommit 
 }: { 
-  mission: any
+  mission: { action: string; secondsBack: number }
   isCommitted: boolean
   onCommit: () => void 
 }) {

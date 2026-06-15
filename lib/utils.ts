@@ -1,4 +1,12 @@
+/**
+ * UTILITY FUNCTIONS
+ * Exports calculateBurnRate (aggregate personal carbon score from audit
+ * answers), getThreatLevel (maps burn rate to a threat classification
+ * string), and generateArchiveMetrics (diffs two investigations to
+ * surface recovery sources and behavior changes).
+ */
 import { QUESTION_BANK, CATEGORY_KEYS } from "./questions";
+import { ClimateProfile } from "./memory-service";
 
 /**
  * Calculates personal carbon burn rate from
@@ -29,8 +37,6 @@ export function getThreatLevel(burnRate: number) {
   if (burnRate > 500) return "GAMMA-3 ELEVATED";
   return "DELTA-4 STABLE";
 }
-
-import { ClimateProfile } from "./memory-service";
 
 export function generateArchiveMetrics(profile: ClimateProfile | null) {
   const recoverySources: { category: string; delta: number }[] = [];

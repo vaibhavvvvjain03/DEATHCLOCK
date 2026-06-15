@@ -1,3 +1,9 @@
+/**
+ * RADAR
+ * Canvas-based radar sweep animation rendered at a configurable size.
+ * Draws concentric circles, a rotating green sweep beam, and random blip
+ * dots that fade over time, giving the scanning page its classified look.
+ */
 "use client";
 import { useEffect, useRef } from "react";
 
@@ -66,10 +72,6 @@ export default function Radar({ size = 280, city }: RadarProps) {
       // Sweep fan (trailing gradient arc)
       const currentAngle = angleRef.current;
       const startAngle = currentAngle - trailDeg;
-
-      const gradient = ctx.createConicalGradient
-        ? null // fallback below
-        : null;
 
       // Draw sweep using arc fill slices
       const steps = 24;
@@ -150,9 +152,6 @@ export default function Radar({ size = 280, city }: RadarProps) {
       ctx.shadowBlur = 6;
       ctx.fill();
       ctx.shadowBlur = 0;
-
-      // Clip to circle
-      // (already drawn inside arc)
 
       angleRef.current += sweepSpeed;
       rafRef.current = requestAnimationFrame(draw);

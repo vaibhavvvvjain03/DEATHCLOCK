@@ -1,3 +1,9 @@
+/**
+ * HEALTH API ROUTE \u2014 GET /api/health
+ * Returns server status and warms up the carbon data cache for the top
+ * Indian cities by firing background requests to /api/carbon on the first
+ * hit. Used for uptime monitoring and cold-start pre-warming.
+ */
 import { NextResponse } from "next/server";
 import { getCached } from "../../../lib/cache";
 import { POST as CarbonPOST } from "../carbon/route";

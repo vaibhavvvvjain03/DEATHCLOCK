@@ -1,3 +1,10 @@
+/**
+ * ARCHIVE TAB
+ * Displays investigation history from MemoryService: previous burn-rate
+ * comparison, per-category recovery-source breakdown, detected behaviour
+ * changes between audits, a chronological investigation log, mission stats,
+ * and an Intelligence Explanation Engine glossary.
+ */
 "use client";
 import { CATEGORY_KEYS, QUESTION_BANK } from "@/lib/questions";
 import { ClimateProfile } from "@/lib/memory-service";

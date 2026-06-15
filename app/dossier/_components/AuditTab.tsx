@@ -1,3 +1,10 @@
+/**
+ * AUDIT TAB
+ * Renders the multi-category personal carbon audit questionnaire embedded
+ * within the dossier. Handles briefing screen, loading/done states, a
+ * category-transition overlay, per-question option buttons with processing
+ * feedback, and category-dot progress indicators.
+ */
 "use client";
 import { CATEGORY_NAMES, QUESTION_BANK } from "@/lib/questions";
 import { motion, AnimatePresence } from "framer-motion";

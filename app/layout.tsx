@@ -1,3 +1,9 @@
+/**
+ * ROOT LAYOUT
+ * Wraps every page with IBM Plex fonts, global CSS, a scanline/vignette
+ * overlay, the custom crosshair Cursor, accessibility skip-link, and the
+ * PageSwitcher nav dots. Also mounts a top-level ErrorBoundary.
+ */
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";

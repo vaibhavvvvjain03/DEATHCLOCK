@@ -1,3 +1,10 @@
+/**
+ * QUESTION BANK
+ * Static data for the 30-question personal carbon audit across 6 categories:
+ * movement, food, home, consumption, waterWaste, and work. Each question has
+ * 4-5 options with a burnRate (seconds/day) contribution to the user's
+ * total personal carbon footprint score.
+ */
 export const QUESTION_BANK = {
   movement: [
     { id: "mov_1", question: "PRIMARY TRANSPORTATION VECTOR", options: [

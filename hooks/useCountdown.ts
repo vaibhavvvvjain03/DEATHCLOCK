@@ -16,11 +16,13 @@ export function useCountdown(initialSeconds: number) {
     setTicks(initialSeconds);
   }, [initialSeconds]);
 
+  const isActive = ticks > 0;
+
   useEffect(() => {
-    if (ticks <= 0) return;
+    if (!isActive) return;
     const t = setInterval(() => setTicks((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
-  }, [ticks > 0]);
+  }, [isActive]);
 
   const yrs = Math.floor(ticks / (365.25 * 24 * 3600));
   const rem = ticks - yrs * Math.floor(365.25 * 24 * 3600);

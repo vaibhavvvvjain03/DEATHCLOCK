@@ -1,3 +1,9 @@
+/**
+ * SWAPS API ROUTE \u2014 POST /api/swaps
+ * Accepts audit answers and a personal daily burn rate, then calls Gemini
+ * to generate 3 high-impact personalised carbon-saving behaviour swaps.
+ * Falls back to localised static swaps on model failure.
+ */
 import { NextResponse } from "next/server";
 import { callGemini } from "../../../lib/gemini";
 import { checkRateLimit } from "../../../lib/rateLimit";

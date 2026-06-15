@@ -1,3 +1,9 @@
+/**
+ * ERROR BOUNDARY
+ * Class-based React error boundary that catches render errors anywhere in
+ * its subtree. Displays a minimal red-tinted fallback instead of crashing
+ * the whole page; logs the error via console.error.
+ */
 "use client";
 
 import React, { Component, ErrorInfo, ReactNode } from "react";

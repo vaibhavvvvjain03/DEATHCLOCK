@@ -1,3 +1,10 @@
+/**
+ * DOSSIER PAGE
+ * The main intelligence hub displaying city carbon data across six tabs:
+ * DOSSIER, EVIDENCE, TIMELINE, AUDIT, VERDICT, and ARCHIVE. Orchestrates
+ * the full audit flow via useAuditFlow, renders a live countdown, and
+ * provides a canvas-based share-card export of the user's verdict.
+ */
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -80,7 +87,7 @@ export default function DossierPage() {
     if (initialTab && ["DOSSIER", "EVIDENCE", "TIMELINE", "AUDIT", "VERDICT", "ARCHIVE"].includes(initialTab)) {
       setTab(initialTab as Tab);
     }
-  }, [city, router]);
+  }, [city, router, initFromStorage]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);

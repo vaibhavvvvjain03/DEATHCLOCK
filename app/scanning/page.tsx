@@ -1,13 +1,18 @@
+/**
+ * SCANNING PAGE
+ * Displays the radar sweep animation and a sequential staggered reveal of
+ * city carbon intelligence lines fetched via the useCityData hook from
+ * /api/carbon. Navigates automatically to /dossier once both the timed
+ * reveal sequence and the API fetch are complete.
+ */
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Radar from "@/components/Radar";
 import { CarbonData } from "@/lib/types";
 import { useLocalStorageState } from "@/hooks/useLocalStorageState";
 import { useCityData } from "@/hooks/useCityData";
 import { RedactedBar } from "@/components/ui/RedactedBar";
-
-import { Suspense } from "react";
 
 const CITY_COUNTRIES: Record<string, string> = {
   'bangalore': 'INDIA',

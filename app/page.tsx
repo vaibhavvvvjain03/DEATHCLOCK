@@ -1,3 +1,10 @@
+/**
+ * HOME PAGE (LANDING + DOSSIER REVEAL)
+ * Renders two animated states: the cinematic boot/landing screen and the
+ * main "classify a city" form. Manages a live 1.5°C breach countdown,
+ * city autocomplete, and a returning-visitor modal that resumes prior
+ * investigations stored in MemoryService.
+ */
 "use client";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -90,7 +97,6 @@ function LandingPageContent() {
     if (existingProfile || existingProgress) {
       setProfile(existingProfile);
       setAuditProgress(existingProgress);
-      // Wait for a brief moment after boot to show the modal if not landing
       if (!isLanding) {
         setShowReturnModal(true);
       }

@@ -1,3 +1,9 @@
+/**
+ * CURSOR
+ * Replaces the browser cursor with an animated red crosshair that tracks
+ * mouse movement. Expands on hover over interactive elements and shows a
+ * coordinate read-out tooltip while moving.
+ */
 "use client";
 import { useEffect, useRef, useState } from "react";
 

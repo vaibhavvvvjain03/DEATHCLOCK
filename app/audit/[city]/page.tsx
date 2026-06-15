@@ -1,3 +1,10 @@
+/**
+ * AUDIT PAGE — /audit/[city]
+ * Standalone full-page questionnaire (30 questions across 6 categories)
+ * for legacy direct-navigation flows. Collects lifestyle answers, accumulates
+ * a personal carbon burn rate, calls /api/swaps on completion, then redirects
+ * to /dossier?tab=verdict with the results stored in localStorage.
+ */
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -92,6 +99,7 @@ export default function AuditPage() {
     startTypewriter(currentQ.question);
     setSelectedOpt(null);
     setShowProcessing(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qIdx]);
 
   const handleSelect = (optValue: string, burnRateDelta: number) => {
@@ -247,9 +255,7 @@ export default function AuditPage() {
   ];
 
   // Category dots (6 categories)
-  const catProgress = CATEGORY_KEYS.map((key, ci) => {
-    const catQs = ALL_QUESTIONS.filter((q) => q.catIdx === ci);
-    const answered = catQs.filter((q) => answers[q.id]).length;
+  const catProgress = CATEGORY_KEYS.map((_key, ci) => {
     if (ci < currentQ.catIdx) return "done";
     if (ci === currentQ.catIdx) return "active";
     return "pending";

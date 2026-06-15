@@ -1,3 +1,9 @@
+/**
+ * PAGE SWITCHER
+ * Floating navigation dot-bar (fixed bottom-right) that maps URL pathnames
+ * to labelled nav dots. Clicking a dot navigates to the corresponding route.
+ * Active dot is highlighted; Framer Motion drives entrance animation.
+ */
 "use client";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";

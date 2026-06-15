@@ -1,3 +1,10 @@
+/**
+ * MEMORY SERVICE
+ * Client-side persistence layer using localStorage. Stores and retrieves
+ * the user's ClimateProfile (audit results, missions, investigation history)
+ * and AuditProgress (resumable in-flight audit state). Handles schema
+ * migration from the legacy `previousInvestigation` format.
+ */
 export interface MissionRecord {
   id: string; // usually swap index or a generated ID
   action: string;

@@ -1,3 +1,10 @@
+/**
+ * QUESTIONS API ROUTE \u2014 POST /api/questions
+ * Generates the next dynamic audit question via Gemini, taking into
+ * account previously answered questions and the target city's local
+ * infrastructure. Falls back to a static transportation question when
+ * the model is unavailable (rate limit / 503).
+ */
 import { NextResponse } from "next/server";
 import { callGemini } from "../../../lib/gemini";
 

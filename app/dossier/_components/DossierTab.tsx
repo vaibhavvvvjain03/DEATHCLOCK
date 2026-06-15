@@ -1,3 +1,9 @@
+/**
+ * DOSSIER TAB
+ * Shows the city's classified overview: satellite map visual, a 2×3 grid
+ * of key carbon metrics (budget, emissions, threat class, etc.), and the
+ * Gemini-generated contextual intelligence sentence for the target region.
+ */
 "use client";
 import { CarbonData } from "@/lib/types";
 import { DataField } from "@/components/ui/DataField";

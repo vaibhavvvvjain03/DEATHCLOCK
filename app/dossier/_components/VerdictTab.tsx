@@ -1,3 +1,10 @@
+/**
+ * VERDICT TAB
+ * Shows the completed audit outcome: daily/weekly burn rate summary grid,
+ * category breakdown bars, a Gemini-generated agent analysis (when a prior
+ * investigation exists), clickable mission cards, and a threat-evolution
+ * report. Exports a shareable canvas verdict card.
+ */
 "use client";
 import { CATEGORY_NAMES, QUESTION_BANK, CATEGORY_KEYS } from "@/lib/questions";
 import { motion, AnimatePresence } from "framer-motion";

@@ -1,3 +1,9 @@
+/**
+ * CARBON API ROUTE \u2014 POST /api/carbon
+ * Accepts a location name, applies rate limiting and caching, then calls
+ * the Gemini API to return structured carbon budget data. Falls back to
+ * city-specific or generic static data on any failure.
+ */
 import { NextResponse } from "next/server";
 import { callGemini } from "../../../lib/gemini";
 import { checkRateLimit } from "../../../lib/rateLimit";

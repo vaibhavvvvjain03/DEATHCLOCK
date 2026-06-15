@@ -34,7 +34,10 @@ export function useAuditFlow(city: string, onAuditComplete?: () => void) {
 
   const catKeys = CATEGORY_KEYS;
   const currentCatKey = catKeys[catIdx];
-  const currentQuestions = currentCatKey ? QUESTION_BANK[currentCatKey] : [];
+  const currentQuestions = useMemo(
+    () => (currentCatKey ? QUESTION_BANK[currentCatKey] : []),
+    [currentCatKey]
+  );
   const currentQ = currentQuestions[qIdx];
   const totalQs = catKeys.reduce((sum, k) => sum + QUESTION_BANK[k].length, 0);
   const answeredQs = Object.keys(answers).length;
@@ -130,7 +133,7 @@ export function useAuditFlow(city: string, onAuditComplete?: () => void) {
       setAuditDone(true);
       setShowBurnoutPopup(true);
     }
-  }, [city]);
+  }, [city, onAuditComplete]);
 
   const handleAnswer = useCallback((optionValue: string, burnRate: number) => {
     if (processingQ || transitioning) return;

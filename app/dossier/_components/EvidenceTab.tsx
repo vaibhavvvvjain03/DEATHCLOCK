@@ -1,3 +1,9 @@
+/**
+ * EVIDENCE TAB
+ * Displays animated segmented bars showing sectoral emission percentages
+ * (transport, energy, industry, etc.), a critical-finding panel, a live
+ * sensor-feed simulation, and collapsible methodology protocol sections.
+ */
 "use client";
 
 const EVIDENCE_BARS = [

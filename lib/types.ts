@@ -1,3 +1,9 @@
+/**
+ * SHARED TYPE DEFINITIONS
+ * Defines the core TypeScript interfaces used across the application:
+ * CarbonData (API response), Question/QuestionBank (audit schema),
+ * SwapMission, and SessionData for client-side persistence.
+ */
 export interface CarbonData {
   remainingBudgetTonnes: number;
   annualEmissionRate: number;

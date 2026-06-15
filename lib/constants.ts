@@ -1,3 +1,9 @@
+/**
+ * APPLICATION CONSTANTS
+ * Exports CARBON_CONSTANTS (API config values), FALLBACK_CARBON_DATA
+ * (static budget fallback used when Gemini is unavailable), and
+ * FALLBACK_SWAPS (three static mission suggestions of last resort).
+ */
 import { CarbonData, SwapMission } from "./types";
 
 export const CARBON_CONSTANTS = {

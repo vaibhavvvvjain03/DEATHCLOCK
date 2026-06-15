@@ -1,3 +1,9 @@
+/**
+ * TIMELINE TAB
+ * Shows the live carbon budget breach countdown (years, days, h:m:s) for
+ * the selected city, a depleted-budget progress bar, and a personal decay
+ * rate panel that prompts the user to start the carbon audit.
+ */
 "use client";
 
 interface CountdownValue {
