@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { MissionCard } from "@/components/ui/MissionCard";
+import { Panel } from "@/components/ui/Panel";
 
 // ── Types ──────────────────────────────────────────────
 type Tab = "DOSSIER" | "EVIDENCE" | "TIMELINE" | "AUDIT" | "VERDICT" | "ARCHIVE";
@@ -403,6 +404,7 @@ export default function DossierPage() {
         </div>
       </div>
 
+      {/* Skipped Panel replacement here to prevent visual differences (custom border-left color and inline styles) */}
       <div className="intel-box" style={{ background: "#080808", border: "1px solid #1a1a1a", borderLeft: "2px solid #00cc66" }}>
         <div className="intel-label" style={{ color: "#00cc66" }}>FIELD INTELLIGENCE</div>
         <div className="intel-text" style={{ color: "#e0e0e0", fontSize: 13, lineHeight: 1.6 }}>
@@ -494,6 +496,7 @@ export default function DossierPage() {
         {/* Right Column: Key Findings & Raw Data */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           {/* Key finding */}
+          {/* Skipped Panel replacement here to prevent visual differences (custom border-left color and inline styles) */}
           <div className="intel-box" style={{ background: "rgba(255, 68, 68, 0.05)", borderLeft: "2px solid #ff4444" }}>
             <div className="intel-label" style={{ color: "#ff4444" }}>
               <span className="live-dot" style={{ width: 6, height: 6 }} /> CRITICAL FINDING
@@ -722,6 +725,7 @@ export default function DossierPage() {
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 24 }}>
         {/* Personal impact */}
+        {/* Skipped Panel replacement here to prevent visual differences (custom border-left color, background and height) */}
         <div className="intel-box" style={{ background: "#050505", border: "1px solid #1a1a1a", borderLeft: "2px solid #ffaa00", height: "100%" }}>
           <div className="intel-label" style={{ color: "#ffaa00" }}>PERSONAL DECAY RATE</div>
           <div className="intel-text" style={{ color: "#ffffff", fontSize: 13, lineHeight: 1.6 }}>

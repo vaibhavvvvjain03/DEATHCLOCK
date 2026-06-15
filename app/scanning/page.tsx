@@ -5,6 +5,7 @@ import Radar from "@/components/Radar";
 import { CarbonData } from "@/lib/types";
 import { useLocalStorageState } from "@/hooks/useLocalStorageState";
 import { useCityData } from "@/hooks/useCityData";
+import { RedactedBar } from "@/components/ui/RedactedBar";
 
 import { Suspense } from "react";
 
@@ -380,10 +381,7 @@ function ScanningContent() {
                     {getLineValue(line)}
                   </span>
                 ) : (
-                  <span
-                    className="redacted"
-                    style={{ width: 100 + (idx * 17) % 60 }}
-                  />
+                  <RedactedBar width={100 + (idx * 17) % 60} />
                 )}
               </div>
             );

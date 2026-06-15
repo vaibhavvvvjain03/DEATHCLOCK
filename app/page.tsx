@@ -4,6 +4,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { MemoryService, ClimateProfile, AuditProgress } from "@/lib/memory-service";
 import { useLocalStorageState } from "@/hooks/useLocalStorageState";
+import { RedactedBar } from "@/components/ui/RedactedBar";
+import { Panel } from "@/components/ui/Panel";
 
 // Fixed breach date: 2033-06-11
 const BREACH_DATE = new Date("2033-06-11T00:00:00Z");
@@ -556,14 +558,14 @@ function LandingPageContent() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       <div className="doc-label" style={{ color: "#aaaaaa" }}>ANALYST</div>
                       <div className="doc-value">
-                        <span className="redacted" style={{ width: 120 }} />
+                        <RedactedBar width={120} />
                       </div>
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       <div className="doc-label" style={{ color: "#aaaaaa" }}>AUTHORIZATION</div>
                       <div className="doc-value">
-                        <span className="redacted" style={{ width: 90 }} />
+                        <RedactedBar width={90} />
                       </div>
                     </div>
 
@@ -798,6 +800,7 @@ function LandingPageContent() {
                       padding: 24,
                     }}
                   >
+                    {/* Skipped Panel replacement here to prevent visual differences (custom padding, border, etc.) */}
                     <motion.div
                       initial={{ scale: 0.95, y: 20 }}
                       animate={{ scale: 1, y: 0 }}
