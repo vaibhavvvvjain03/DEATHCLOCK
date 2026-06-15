@@ -12,6 +12,11 @@ jest.mock("../lib/cache", () => ({
   setCached: jest.fn((key, val) => { cacheStore[key] = val; })
 }));
 
+// validateEnv must pass in tests (GEMINI_API_KEY is not set in the test environment)
+jest.mock("../lib/env", () => ({
+  validateEnv: jest.fn(),
+}));
+
 import { checkRateLimit } from "../lib/rateLimit";
 
 jest.mock("../lib/rateLimit", () => ({
