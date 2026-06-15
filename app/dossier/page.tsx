@@ -1,18 +1,17 @@
 "use client";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { QUESTION_BANK, CATEGORY_NAMES, CATEGORY_KEYS } from "@/lib/questions";
+import { CATEGORY_NAMES, CATEGORY_KEYS, QUESTION_BANK } from "@/lib/questions";
 import { motion, AnimatePresence } from "framer-motion";
-import { MemoryService, ClimateProfile, AuditProgress, MissionRecord } from "@/lib/memory-service";
+import { MemoryService } from "@/lib/memory-service";
 import { CarbonData } from "@/lib/types";
-import { calculateBurnRate } from "@/lib/utils";
+import { useCountdown } from "@/hooks/useCountdown";
+import { useAuditFlow } from "@/hooks/useAuditFlow";
 
 // ── Types ──────────────────────────────────────────────
 type Tab = "DOSSIER" | "EVIDENCE" | "TIMELINE" | "AUDIT" | "VERDICT" | "ARCHIVE";
 
 // ── Constants ──────────────────────────────────────────
-const BREACH_DATE = new Date("2033-06-11T00:00:00Z");
-
 const EVIDENCE_BARS = [
   { label: "TRANSPORT", pct: 78, color: "#ff4444" },
   { label: "ENERGY", pct: 85, color: "#ff4444" },
@@ -22,35 +21,9 @@ const EVIDENCE_BARS = [
   { label: "BUILDINGS", pct: 55, color: "#ffaa00" },
 ];
 
-const DIFF_COLORS: Record<string, string> = {
-  easy: "#00cc66",
-  medium: "#ffaa00",
-  hard: "#ff4444",
-};
-
 // ── Helpers ────────────────────────────────────────────
 function pad(n: number) {
   return String(n).padStart(2, "0");
-}
-
-function useCountdown(secondsRemaining: number) {
-  const [ticks, setTicks] = useState(secondsRemaining);
-
-  useEffect(() => {
-    setTicks(secondsRemaining);
-  }, [secondsRemaining]);
-
-  useEffect(() => {
-    if (ticks <= 0) return;
-    const t = setInterval(() => setTicks((s) => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(t);
-  }, [ticks > 0]);
-
-  const yrs = Math.floor(ticks / (365.25 * 24 * 3600));
-  const rem = ticks - yrs * Math.floor(365.25 * 24 * 3600);
-  const days = Math.floor(rem / (24 * 3600));
-  const rem2 = rem - days * 24 * 3600;
-  return { yrs, days, hh: pad(Math.floor(rem2 / 3600)), mm: pad(Math.floor((rem2 % 3600) / 60)), ss: pad(rem2 % 60) };
 }
 
 function formatBurnRate(sPerDay: number): string {
@@ -70,25 +43,35 @@ export default function DossierPage() {
     router.replace(`?tab=${newTab}`, { scroll: false });
   };
 
-  const [catIdx, setCatIdx] = useState(0);
-  const [qIdx, setQIdx] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const totalBurnRate = useMemo(() => calculateBurnRate(answers), [answers]);
-  const [auditDone, setAuditDone] = useState(false);
-  const [loadingSwaps, setLoadingSwaps] = useState(false);
-  const [missions, setMissions] = useState<MissionRecord[]>([]);
-  const [floatingRestore, setFloatingRestore] = useState<{ id: string; seconds: number; key: number } | null>(null);
-  const [showBurnoutPopup, setShowBurnoutPopup] = useState(false);
-  const [profile, setProfile] = useState<ClimateProfile | null>(null);
-
-  // Audit transition
-  const [transitioning, setTransitioning] = useState(false);
-  const [transitionText, setTransitionText] = useState("");
-  const [showBriefing, setShowBriefing] = useState(true);
-
-  // Processing state
-  const [processingQ, setProcessingQ] = useState(false);
-  const [processingLines, setProcessingLines] = useState<string[]>([]);
+  const {
+    catIdx,
+    qIdx,
+    answers,
+    totalBurnRate,
+    auditDone,
+    loadingSwaps,
+    missions,
+    floatingRestore,
+    showBurnoutPopup,
+    setShowBurnoutPopup,
+    profile,
+    transitioning,
+    transitionText,
+    showBriefing,
+    setShowBriefing,
+    processingQ,
+    processingLines,
+    catKeys,
+    currentCatKey,
+    currentQuestions,
+    currentQ,
+    totalQs,
+    answeredQs,
+    handleAnswer,
+    handleCommit,
+    resetAudit,
+    initFromStorage,
+  } = useAuditFlow(city, () => setTab("VERDICT"));
 
   // Evidence bars animated
   const [barsVisible, setBarsVisible] = useState(false);
@@ -103,22 +86,8 @@ export default function DossierPage() {
       try { setApiData(JSON.parse(raw)); } catch { }
     }
 
-    const existingProfile = MemoryService.getProfile();
-    if (existingProfile) {
-      setProfile(existingProfile);
-      setMissions(existingProfile.missions || []);
-    }
+    initFromStorage(c);
 
-    const progress = MemoryService.getAuditProgress();
-    if (progress && progress.city === c) {
-      setCatIdx(progress.catIdx);
-      setQIdx(progress.qIdx);
-      setAnswers(progress.answers);
-      if (progress.catIdx > 0 || progress.qIdx > 0) {
-        setShowBriefing(false);
-      }
-    }
-    
     // Check URL params for initial tab
     const searchParams = new URLSearchParams(window.location.search);
     const initialTab = searchParams.get("tab");
@@ -146,178 +115,9 @@ export default function DossierPage() {
   const secondsRemaining = apiData?.secondsRemaining ?? 0;
   const countdown = useCountdown(secondsRemaining);
 
-  // ── Audit logic ──
-  const catKeys = CATEGORY_KEYS;
-  const currentCatKey = catKeys[catIdx];
-  const currentQuestions = currentCatKey ? QUESTION_BANK[currentCatKey] : [];
-  const currentQ = currentQuestions[qIdx];
-  const totalQs = catKeys.reduce((sum, k) => sum + QUESTION_BANK[k].length, 0);
-  const answeredQs = Object.keys(answers).length;
+  // ── Audit logic (moved to useAuditFlow hook) ──
 
-  const handleAnswer = (optionValue: string, burnRate: number) => {
-    if (processingQ || transitioning) return;
 
-    const newAnswers = { ...answers, [currentQ.id]: optionValue };
-    // We calculate new burn rate locally to pass to MemoryService/finishAudit directly
-    const newBurn = calculateBurnRate(newAnswers);
-    setAnswers(newAnswers);
-
-    // Show processing lines
-    setProcessingQ(true);
-    setProcessingLines([]);
-    const lines = ["> PROCESSING INPUT...", "> CALCULATING DELTA...", "> UPDATING TIMELINE..."];
-    lines.forEach((l, i) => {
-      setTimeout(() => {
-        setProcessingLines((prev) => [...prev, l]);
-      }, i * 50);
-    });
-
-    setTimeout(() => {
-      setProcessingQ(false);
-      setProcessingLines([]);
-
-      const nextQIdx = qIdx + 1;
-      if (nextQIdx < currentQuestions.length) {
-        setQIdx(nextQIdx);
-        MemoryService.saveAuditProgress({ city, catIdx, qIdx: nextQIdx, answers: newAnswers, totalBurnRate: newBurn });
-      } else {
-        const nextCatIdx = catIdx + 1;
-        if (nextCatIdx < catKeys.length) {
-          // Show transition screen
-          const nextCatName = CATEGORY_NAMES[nextCatIdx];
-          setTransitionText(`ADVANCING TO ${nextCatName} ›`);
-          setTransitioning(true);
-          setTimeout(() => {
-            setTransitioning(false);
-            setCatIdx(nextCatIdx);
-            setQIdx(0);
-            MemoryService.saveAuditProgress({ city, catIdx: nextCatIdx, qIdx: 0, answers: newAnswers, totalBurnRate: newBurn });
-          }, 500);
-        } else {
-          // All done — call swaps API
-          setCatIdx(nextCatIdx); // Set beyond array to trigger "AUDIT COMPLETE"
-          finishAudit(newAnswers, newBurn);
-        }
-      }
-    }, 200);
-  };
-
-  const finishAudit = async (allAnswers: Record<string, string>, burnRate: number) => {
-    setLoadingSwaps(true);
-    setTab("VERDICT");
-    const categoryScores: Record<string, number> = {};
-    CATEGORY_KEYS.forEach(key => {
-      let score = 0;
-      QUESTION_BANK[key].forEach(q => {
-        const selectedVal = allAnswers[q.id];
-        const option = q.options.find(o => o.value === selectedVal);
-        if (option) score += option.burnRate;
-      });
-      categoryScores[key] = Math.max(0, score);
-    });
-
-    const createProfileObject = (newMissions: MissionRecord[]) => {
-      const existingProfile = MemoryService.getProfile();
-      const pastInvestigations = existingProfile?.pastInvestigations || [];
-      
-      if (existingProfile) {
-        pastInvestigations.push({
-          id: `INV-${String(existingProfile.totalInvestigations).padStart(3, '0')}`,
-          city: existingProfile.city,
-          burnRate: existingProfile.personalBurnRate,
-          categoryScores: existingProfile.categoryScores || {},
-          completionDate: existingProfile.auditCompletionDate || existingProfile.lastVisitDate,
-          answers: existingProfile.answers
-        });
-      }
-
-      return {
-        city,
-        answers: allAnswers,
-        personalBurnRate: burnRate,
-        categoryScores,
-        missions: newMissions,
-        verdict: "COMPLETED",
-        auditCompletionDate: new Date().toISOString(),
-        totalInvestigations: existingProfile ? existingProfile.totalInvestigations + 1 : 1,
-        pastInvestigations
-      };
-    };
-
-    try {
-      const abortController = new AbortController();
-      const timeoutId = setTimeout(() => abortController.abort(), 10000);
-
-      const res = await fetch("/api/swaps", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cityName: city,
-          allAnswers,
-          personalDailySeconds: burnRate,
-        }),
-        signal: abortController.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      
-      const data = await res.json();
-      const swapList = data.swaps || [];
-      if (swapList.length === 0) throw new Error("Empty swaps from API");
-      
-      const newMissions: MissionRecord[] = swapList.map((s: Partial<MissionRecord>, i: number) => ({
-        id: `msn_${Date.now()}_${i}`,
-        ...s,
-        status: "pending"
-      } as MissionRecord));
-      setMissions(newMissions);
-      
-      MemoryService.saveProfile(createProfileObject(newMissions));
-      setProfile(MemoryService.getProfile());
-      MemoryService.clearAuditProgress();
-    } catch {
-      const fallbackMissions: MissionRecord[] = [
-        { id: "msn_f1", action: "Switch to 100% renewable energy provider", difficulty: "medium", secondsBack: 21600, localContext: "Your regional grid has multiple green energy options available for immediate switch.", status: "pending" },
-        { id: "msn_f2", action: "Replace all vehicle trips under 3km with walking/cycling", difficulty: "easy", secondsBack: 14400, localContext: "Short trips are the most emission-intensive per kilometer.", status: "pending" },
-        { id: "msn_f3", action: "Eliminate beef and lamb from diet", difficulty: "hard", secondsBack: 28800, localContext: "Ruminant meat has the highest carbon footprint of all food sources.", status: "pending" }
-      ];
-      setMissions(fallbackMissions);
-      MemoryService.saveProfile(createProfileObject(fallbackMissions));
-      setProfile(MemoryService.getProfile());
-      MemoryService.clearAuditProgress();
-    } finally {
-      setLoadingSwaps(false);
-      setAuditDone(true);
-      setShowBurnoutPopup(true);
-    }
-  };
-
-  const handleCommit = (mission: MissionRecord, idx: number) => {
-    const isCompleted = mission.status === "completed";
-    const nextStatus = isCompleted ? "pending" : "completed";
-    
-    const newMissions = [...missions];
-    newMissions[idx] = { 
-      ...mission, 
-      status: nextStatus,
-      completedDate: nextStatus === "completed" ? new Date().toISOString() : undefined
-    };
-    
-    setMissions(newMissions);
-    if (profile) {
-      const newProfile = { ...profile, missions: newMissions };
-      MemoryService.saveProfile(newProfile);
-      setProfile(MemoryService.getProfile());
-    }
-
-    if (nextStatus === "completed") {
-      setFloatingRestore({ id: mission.id, seconds: mission.secondsBack, key: Date.now() });
-      setTimeout(() => setFloatingRestore(null), 1500);
-    }
-  };
 
   // ── Share card ──
   const generateShareCard = () => {
@@ -1119,14 +919,7 @@ export default function DossierPage() {
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
               <button
-                onClick={() => {
-                  setCatIdx(0);
-                  setQIdx(0);
-                  setAnswers({});
-                  setAuditDone(false);
-                  setMissions([]);
-                  MemoryService.clearAuditProgress();
-                }}
+                onClick={resetAudit}
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: 16,
@@ -1372,6 +1165,7 @@ export default function DossierPage() {
     if (burnRate > 500) return "GAMMA-3 ELEVATED";
     return "DELTA-4 STABLE";
   };
+
 
   const renderVerdict = () => {
     const topReductions: { name: string; delta: number; pct: number }[] = [];
