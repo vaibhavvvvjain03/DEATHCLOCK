@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { QUESTION_BANK, CATEGORY_NAMES, CATEGORY_KEYS } from "@/lib/questions";
+import { useLocalStorageState } from "@/hooks/useLocalStorageState";
 
 // Flatten all questions in order
 const ALL_QUESTIONS = CATEGORY_KEYS.flatMap((key, catIdx) =>
@@ -37,6 +38,12 @@ export default function AuditPage() {
   const [finalTextIdx, setFinalTextIdx] = useState(0);
   const twRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasMounted = useRef(false);
+
+  // localStorage-backed setters (keys match existing storage keys)
+  const [storedCity] = useLocalStorageState<string>("dc_city", "");
+  const [, setStoredAnswers] = useLocalStorageState<Record<string, string>>("dc_answers", {});
+  const [, setStoredBurnRate] = useLocalStorageState<string>("dc_burnrate", "0");
+  const [, setStoredSwaps] = useLocalStorageState<unknown[]>("dc_swaps", []);
 
   const currentQ = ALL_QUESTIONS[qIdx];
   const catName = currentQ.catName;
@@ -80,7 +87,6 @@ export default function AuditPage() {
   useEffect(() => {
     if (!hasMounted.current) {
       hasMounted.current = true;
-      const storedCity = localStorage.getItem("dc_city");
       if (!storedCity) router.push("/");
     }
     startTypewriter(currentQ.question);
@@ -96,8 +102,8 @@ export default function AuditPage() {
     const newBurnRate = burnRate + burnRateDelta;
     setAnswers(newAnswers);
     setBurnRate(newBurnRate);
-    localStorage.setItem("dc_answers", JSON.stringify(newAnswers));
-    localStorage.setItem("dc_burnrate", String(newBurnRate));
+    setStoredAnswers(newAnswers);
+    setStoredBurnRate(String(newBurnRate));
 
     setShowProcessing(true);
     setProcessing(true);
@@ -137,15 +143,15 @@ export default function AuditPage() {
       });
       const data = await res.json();
       if (data.swaps) {
-        localStorage.setItem("dc_swaps", JSON.stringify(data.swaps));
+        setStoredSwaps(data.swaps);
       }
     } catch {
       // Fallback swaps
-      localStorage.setItem("dc_swaps", JSON.stringify([
+      setStoredSwaps([
         { action: "Switch to a renewable energy provider", secondsBack: 15000, difficulty: "medium", localContext: `Look for local green energy co-ops in ${city}.` },
         { action: "Reduce red meat consumption to once a week", secondsBack: 8000, difficulty: "easy", localContext: `Explore the local plant-based food scene in ${city}.` },
         { action: "Replace 3 car trips a week with transit or biking", secondsBack: 5000, difficulty: "medium", localContext: `Utilize the public transit network in ${city}.` },
-      ]));
+      ]);
     }
     // Navigate to dossier verdict tab
     setTimeout(() => router.push("/dossier?tab=verdict"), 2000);

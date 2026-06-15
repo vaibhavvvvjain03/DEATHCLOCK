@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { MemoryService, ClimateProfile, AuditProgress } from "@/lib/memory-service";
+import { useLocalStorageState } from "@/hooks/useLocalStorageState";
 
 // Fixed breach date: 2033-06-11
 const BREACH_DATE = new Date("2033-06-11T00:00:00Z");
@@ -61,6 +62,7 @@ function LandingPageContent() {
   }, [searchParams]);
 
   const [city, setCity] = useState("");
+  const [, setStoredCity] = useLocalStorageState<string>("dc_city", "");
   const [focused, setFocused] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -121,7 +123,7 @@ function LandingPageContent() {
   const handleRetrieve = () => {
     const trimmed = city.trim();
     if (!trimmed) return;
-    localStorage.setItem("dc_city", trimmed);
+    setStoredCity(trimmed);
     router.push("/scanning");
   };
 
@@ -140,7 +142,7 @@ function LandingPageContent() {
         setShowSuggestions(false);
         const trimmed = selected.trim();
         if (trimmed) {
-          localStorage.setItem("dc_city", trimmed);
+          setStoredCity(trimmed);
           router.push("/scanning");
         }
       } else {
@@ -153,7 +155,7 @@ function LandingPageContent() {
     if (action === "continue") {
       const targetCity = auditProgress?.city || profile?.city;
       if (targetCity) {
-        localStorage.setItem("dc_city", targetCity);
+        setStoredCity(targetCity);
         router.push("/dossier?tab=ARCHIVE");
       }
     } else {

@@ -7,6 +7,7 @@ import { MemoryService } from "@/lib/memory-service";
 import { CarbonData } from "@/lib/types";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useAuditFlow } from "@/hooks/useAuditFlow";
+import { useLocalStorageState } from "@/hooks/useLocalStorageState";
 
 // ── Types ──────────────────────────────────────────────
 type Tab = "DOSSIER" | "EVIDENCE" | "TIMELINE" | "AUDIT" | "VERDICT" | "ARCHIVE";
@@ -34,8 +35,8 @@ function formatBurnRate(sPerDay: number): string {
 export default function DossierPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("DOSSIER");
-  const [city, setCity] = useState("");
-  const [apiData, setApiData] = useState<CarbonData | null>(null);
+  const [city] = useLocalStorageState<string>("dc_city", "");
+  const [apiData] = useLocalStorageState<CarbonData | null>("dc_data", null);
   const [isMobile, setIsMobile] = useState(false);
 
   const handleTabChange = (newTab: Tab) => {
@@ -77,16 +78,9 @@ export default function DossierPage() {
   const [barsVisible, setBarsVisible] = useState(false);
 
   useEffect(() => {
-    const c = localStorage.getItem("dc_city") || "";
-    if (!c) { router.replace("/"); return; }
-    setCity(c);
+    if (!city) { router.replace("/"); return; }
 
-    const raw = localStorage.getItem("dc_data");
-    if (raw) {
-      try { setApiData(JSON.parse(raw)); } catch { }
-    }
-
-    initFromStorage(c);
+    initFromStorage(city);
 
     // Check URL params for initial tab
     const searchParams = new URLSearchParams(window.location.search);
@@ -94,7 +88,7 @@ export default function DossierPage() {
     if (initialTab && ["DOSSIER", "EVIDENCE", "TIMELINE", "AUDIT", "VERDICT", "ARCHIVE"].includes(initialTab)) {
       setTab(initialTab as Tab);
     }
-  }, [router]);
+  }, [city, router]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);

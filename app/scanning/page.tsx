@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Radar from "@/components/Radar";
 import { CarbonData } from "@/lib/types";
-import { FALLBACK_CARBON_DATA } from "@/lib/constants";
+import { useLocalStorageState } from "@/hooks/useLocalStorageState";
+import { useCityData } from "@/hooks/useCityData";
 
 import { Suspense } from "react";
 
@@ -93,26 +94,28 @@ function ScanningContent() {
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
   
-  const [city, setCity] = useState("");
+  const [city] = useLocalStorageState<string>("dc_city", "");
   const [revealedLines, setRevealedLines] = useState<number[]>([]);
-  const [apiData, setApiData] = useState<CarbonData | null>(null);
   const [radarSize, setRadarSize] = useState(280);
   const [isMobile, setIsMobile] = useState(false);
-  const [fetchError, setFetchError] = useState(false);
   const navigated = useRef(false);
 
   const [fetchComplete, setFetchComplete] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
 
-  // Read city from localStorage
+  // Redirect if no city stored
   useEffect(() => {
-    const stored = localStorage.getItem("dc_city") || "";
-    if (!stored) {
-      router.replace("/");
-      return;
+    if (city === "") {
+      // Give one tick for the hook to hydrate from localStorage
+      const t = setTimeout(() => {
+        if (!localStorage.getItem("dc_city")) router.replace("/");
+      }, 0);
+      return () => clearTimeout(t);
     }
-    setCity(stored);
-  }, [router]);
+  }, [city, router]);
+
+  // Fetch carbon data via hook
+  const { data: apiData, loading: fetchLoading, isFromFallback: fetchError } = useCityData(city, isDemo);
 
   // Responsive
   useEffect(() => {
@@ -126,72 +129,12 @@ function ScanningContent() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Fetch carbon data in background
+  // Mark fetchComplete when the hook resolves
   useEffect(() => {
-    if (!city) return;
-    
-    if (isDemo) {
-      const fallback = {
-        ...FALLBACK_CARBON_DATA,
-        cityName: city.toUpperCase(),
-        contextSentence: "Carbon telemetry is running in DEMO mode.",
-      };
-      setApiData(fallback);
-      localStorage.setItem("dc_data", JSON.stringify(fallback));
+    if (!fetchLoading && city) {
       setFetchComplete(true);
-      return;
     }
-
-    const abortController = new AbortController();
-    const timeoutId = setTimeout(() => {
-      abortController.abort();
-      setFetchError(true);
-    }, 8000);
-
-    const fetchData = async () => {
-      try {
-        const res = await fetch("/api/carbon", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ location: city }),
-          signal: abortController.signal,
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        
-        const data = await res.json();
-        setApiData(data);
-        localStorage.setItem("dc_data", JSON.stringify(data));
-      } catch (err: unknown) {
-        if (err instanceof Error && err.name === 'AbortError') {
-          // Fetch took longer than 8 seconds. Using cached/fallback data.
-        } else {
-          // Fetch failed
-        }
-        setFetchError(true);
-        const fallback = {
-          ...FALLBACK_CARBON_DATA,
-          cityName: city.toUpperCase(),
-          contextSentence: "CONNECTION SLOW — USING CACHED DATA",
-        };
-        setApiData(fallback);
-        localStorage.setItem("dc_data", JSON.stringify(fallback));
-      } finally {
-        setFetchComplete(true);
-      }
-    };
-
-    fetchData();
-    
-    return () => {
-      clearTimeout(timeoutId);
-      abortController.abort();
-    };
-  }, [city, isDemo]);
+  }, [fetchLoading, city]);
 
   // Staggered line reveal
   useEffect(() => {
