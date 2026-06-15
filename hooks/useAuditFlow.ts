@@ -6,6 +6,12 @@ import { calculateBurnRate } from "@/lib/utils";
 export type QuestionBank = typeof QUESTION_BANK;
 
 /**
+ * TRACK: Calculates the user's personal daily carbon burn rate in real-time
+ * based on 18 lifestyle questions across 6 categories (Movement, Food, Home,
+ * Consumption, Water & Waste, Work), using emission-factor-based scoring
+ * from lib/questions.ts. Orchestrates the full multi-step audit state machine
+ * and triggers Gemini API (/api/swaps) on completion to generate missions.
+ *
  * Manages the 18-question personal carbon audit
  * flow: current category, current question index,
  * accumulated answers per category, running total

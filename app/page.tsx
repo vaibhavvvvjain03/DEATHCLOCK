@@ -614,7 +614,22 @@ function LandingPageContent() {
                     <span className="live-dot" style={{ width: 5, height: 5 }} /> REQUEST CITY DOSSIER
                   </div>
 
-                  {/* Input row */}
+                  {/* Plain-language summary — small muted text, wraps safely at 375px */}
+                  <div
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 9,
+                      color: "#555555",
+                      letterSpacing: 1,
+                      lineHeight: 1.8,
+                      marginBottom: 12,
+                      maxWidth: 520,
+                      textAlign: "center",
+                    }}
+                  >
+                    A personal carbon footprint tracker — see your city's carbon budget, audit your lifestyle,
+                    and get specific actions to reduce your impact.
+                  </div>
                   <div
                     style={{
                       position: "relative",

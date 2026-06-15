@@ -4,6 +4,11 @@
  * category breakdown bars, a Gemini-generated agent analysis (when a prior
  * investigation exists), clickable mission cards, and a threat-evolution
  * report. Exports a shareable canvas verdict card.
+ *
+ * REDUCE: Gemini API (/api/swaps) generates 3 personalized behavior-change
+ * missions with quantified seconds-restored impact and city-specific local
+ * context. Users commit to missions and share their verdict, completing the
+ * "help individuals reduce their carbon footprint" goal of the challenge.
  */
 "use client";
 import { CATEGORY_NAMES, QUESTION_BANK, CATEGORY_KEYS } from "@/lib/questions";

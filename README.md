@@ -8,19 +8,29 @@
 
 ---
 
-## Chosen Vertical
+## Problem Statement & Solution
 
-**Individual Carbon Footprint Tracker** — helping individuals understand, track, and reduce their personal carbon footprint through real-time city-level data and personalized behavioral interventions.
+The challenge asks for a solution that helps individuals **understand, track, and reduce** their carbon footprint through simple actions and personalized insights. DeathClock addresses each verb directly:
+
+- **UNDERSTAND** → The city-level carbon dossier (`/api/carbon` via Gemini) gives every user a concrete picture of their region's remaining CO₂ budget, annual emission rate, and survival probability before the 1.5 °C threshold is breached. Abstract tonne-counts become a live, ticking deadline.
+
+- **TRACK** → The 18-question personal carbon audit (`useAuditFlow`, `lib/questions.ts`) calculates a real-time daily "burn rate" — how many seconds per day the user's lifestyle shaves off the city's clock. Every answered question updates the number instantly, making the connection between personal behaviour and collective impact visceral.
+
+- **REDUCE** → On audit completion, Gemini (`/api/swaps`) generates three personalized behaviour-swap missions based on the user's exact answers and city. Each mission shows the specific action, the precise seconds restored to the clock per day, and city-specific local context (e.g. nearby transit, local markets). Users commit to missions; a shareable certificate is produced.
 
 ---
 
-## The Problem Being Solved
+## The Creative Framing
 
-Every existing carbon footprint tool shows users a number — "your footprint is 4.2 tonnes CO₂ per year" — and expects that number to drive behavior change. It doesn't. People don't feel the urgency of an abstract statistic.
+Most carbon tools show a number. DeathClock shows a deadline.
 
-DeathClock reframes the problem: instead of showing you a number, it shows you a **deadline**. Your city has a specific, calculable carbon budget before it crosses the 1.5°C irreversible climate threshold. That budget is being consumed right now, every second. And you personally are contributing to burning it faster.
+The "classified intelligence bureau" aesthetic — redacted bars, radar sweeps, stamped dossiers — is a deliberate design decision, not decoration. Climate data becomes a classified threat file rather than a benign dashboard. This shift in framing has three specific effects:
 
-The shift from "here is your data" to "here is your deadline" is the core behavioral insight driving this application.
+1. **Urgency becomes personal.** A countdown clock to an irreversible threshold feels different from a pie chart of emission categories.
+2. **The audit feels like an interrogation, not a quiz.** Framing lifestyle questions as intelligence-gathering creates a higher sense of stakes.
+3. **The verdict feels earned.** Receiving a "CERTIFICATE OF COMMENDATION" or "CITATION OF ACCELERATED DECAY" carries emotional weight a score of "4.2 tonnes" never could.
+
+The bureau framing is the mechanism that makes the data stick.
 
 ---
 
@@ -33,29 +43,30 @@ Landing (Classified Dossier)
     ↓ User enters city name
 Scanning Page (Radar + Data Reveal)
     ↓ Gemini API fetches city carbon data
-Dossier (5 tabs)
+Dossier (6 tabs)
     ├── DOSSIER    — City carbon intelligence file
     ├── EVIDENCE   — Emission category breakdown
     ├── TIMELINE   — Live ticking death countdown
     ├── AUDIT      — 18-question personal lifestyle assessment
-    └── VERDICT    — Personalized missions + commitment system
+    ├── VERDICT    — Personalized missions + commitment system
+    └── ARCHIVE    — Historical investigation record
 ```
 
 ### Page 1 — Landing (Classified Document)
-The UI is designed as a leaked government intelligence document — the Climate Intelligence Bureau's classified carbon countdown file. Users enter their city name and click RETRIEVE to begin.
+The UI is a leaked government intelligence document — the Climate Intelligence Bureau's classified carbon countdown file. Users enter their city name and click RETRIEVE to begin.
 
 ### Page 2 — Scanning
 A radar sweep animation plays while Gemini API processes the city. Classified data fields unlock one by one — redacted bars revealing real carbon data in real time. This loading state is intentionally dramatic to create emotional investment before the data lands.
 
-### Page 3 — Dossier (5 Tabs)
+### Page 3 — Dossier (6 Tabs)
 
 **DOSSIER tab:** City-specific carbon intelligence — remaining budget, survival probability, annual emissions, threat classification, and a Gemini-generated field intelligence summary specific to that city's climate risks.
 
 **EVIDENCE tab:** Category-level emission breakdown (Transport, Energy, Industry, Waste, Agriculture, Buildings) with animated bars showing relative contribution.
 
-**TIMELINE tab:** The live death clock — a real-time countdown showing exactly how long the city's carbon budget has remaining before irreversible threshold breach. This is the emotional core of the product. The clock ticks every second.
+**TIMELINE tab:** The live death clock — a real-time countdown showing exactly how long the city's carbon budget has remaining before irreversible threshold breach. The clock ticks every second.
 
-**AUDIT tab:** An -question personal lifestyle assessment across 6 categories:
+**AUDIT tab:** An 18-question personal lifestyle assessment across 6 categories:
 - Movement (commute, vehicle, flights, deliveries)
 - Food (meat consumption, sourcing, waste)
 - Home (AC usage, electricity, renewables)
@@ -73,133 +84,76 @@ Each answer instantly updates the user's personal burn rate — showing exactly 
 
 Users commit to missions. A share card is generated for social broadcast.
 
+**ARCHIVE tab:** Historical record of all past investigations — burn rates, threat classifications, timeline recovery achieved, and mission effectiveness across sessions.
+
 ---
-## Climate Intelligence Memory System
 
-Traditional carbon calculators provide a one-time snapshot.
+## Tech Stack
 
-DEATHCLOCK introduces a persistent Climate Intelligence Memory System that allows users to measure behavioral change over time.
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router, TypeScript) |
+| AI | Google Gemini API (`gemini-2.0-flash`) |
+| Dev tooling | Google Antigravity IDE |
+| Animation | Framer Motion |
+| Graphics | Canvas API (radar, share card) |
+| Typography | IBM Plex Mono / IBM Plex Sans |
+| Validation | Zod |
+| Testing | Jest + @testing-library/react |
 
-Every completed investigation is archived and compared against future assessments.
+---
 
-The system tracks:
+## Architecture
 
-- Previous burn rates
-- Current burn rates
-- Carbon threat reduction
-- Timeline recovery achieved
-- Mission effectiveness
-- Historical investigations
-
-This transforms DEATHCLOCK from a carbon calculator into a climate behavior tracking platform.
-
-## Technical Approach
-
-### AI Integration
-- **Gemini API** (`/api/carbon`) — generates city-specific carbon budget data, survival probability, field intelligence summary, and contextual threat analysis
-- **Gemini API** (`/api/swaps`) — receives all 18 audit answers + total burn rate, generates 3 personalized behavioral interventions with city-specific context
-- Questions are served from a local hardcoded bank (`lib/questions.ts`) for speed and reliability — no API latency in the audit flow
-- Only 2 Gemini API calls total per user session for efficiency
-
-### Architecture
 ```
 app/
-├── page.tsx              — Landing dossier page
-├── scanning/page.tsx     — Radar + data reveal sequence
-├── dossier/page.tsx      — 5-tab dossier experience
-├── audit/[city]/page.tsx — 18-question lifestyle audit
-api/
-├── carbon/route.ts       — Gemini city carbon data
-├── swaps/route.ts        — Gemini personalized missions
+├── page.tsx                     — Landing dossier page
+├── scanning/page.tsx            — Radar + data reveal sequence
+├── dossier/
+│   ├── page.tsx                 — 6-tab dossier shell + nav
+│   └── _components/
+│       ├── DossierTab.tsx       — UNDERSTAND: city carbon intelligence
+│       ├── EvidenceTab.tsx      — Emission category breakdown
+│       ├── TimelineTab.tsx      — Live countdown display
+│       ├── AuditTab.tsx         — TRACK: lifestyle questionnaire UI
+│       ├── VerdictTab.tsx       — REDUCE: missions + commitment
+│       └── ArchiveTab.tsx       — Historical investigation record
+├── audit/[city]/page.tsx        — Direct city audit URL
+└── api/
+    ├── carbon/route.ts          — Gemini city carbon data
+    ├── swaps/route.ts           — Gemini personalized missions
+    ├── questions/route.ts       — Audit question bank
+    └── health/route.ts          — Health check endpoint
+hooks/
+├── useCountdown.ts              — Live seconds-remaining ticker
+├── useAuditFlow.ts              — TRACK: 18-question audit state machine
+├── useLocalStorageState.ts      — Typed localStorage hook
+└── useCityData.ts               — City data fetch + cache
 lib/
-├── questions.ts          — Complete hardcoded question bank
+├── questions.ts                 — Hardcoded question bank with emission factors
+├── memory-service.ts            — localStorage investigation archive
+├── schemas.ts                   — Zod validation schemas
+├── utils.ts                     — Burn rate calculation
+├── types.ts                     — Shared TypeScript types
+└── env.ts                       — Environment variable validation
 components/
-├── Cursor.tsx            — Custom crosshair cursor
-├── PageSwitcher.tsx      — Bottom navigation pill
-├── Radar.tsx             — Canvas radar sweep animation
-├── DeathClock.tsx        — Live countdown component
-└── ShareCard.tsx         — Canvas share card generator
+├── Cursor.tsx                   — Custom crosshair cursor
+├── Radar.tsx                    — Canvas radar sweep animation
+└── ui/                          — Shared UI primitives
+__tests__/
+├── useCountdown.test.ts
+├── useAuditFlow.test.ts
+├── useLocalStorageState.test.ts
+├── cityFallbacks.test.ts
+├── api-carbon.test.ts
+└── schemas.test.ts
 ```
 
 ### Key Technical Decisions
-- **No globe/map** — deliberately avoided the overused approach of every other climate app. Radar scanner is more dramatic and more original.
-- **Hardcoded questions, AI-generated insights** — questions are static for speed; Gemini is only called where personalisation is genuinely needed (city data + final swap recommendations)
-- **localStorage session** — city name, carbon data, all answers, burn rate, and committed missions persist across the session without a database
-- **Canvas share card** — generated client-side, no server dependency for social sharing
-
----
-## Investigation Archive
-
-The Archive functions as the Climate Intelligence Bureau's historical record system.
-
-Users can revisit previous investigations and monitor their environmental progress over time.
-
-Features include:
-
-### Investigation History
-
-- Previous investigation dates
-- Historical burn rates
-- Threat classifications
-- Timeline recovery achievements
-
-### Recovery Source Breakdown
-
-The platform automatically identifies which lifestyle categories contributed most to improvement.
-
-Examples:
-
-- Movement
-- Food
-- Home Energy
-- Consumption
-- Water & Waste
-- Work
-
-### Threat Evolution
-
-Users can monitor changes between threat classifications over multiple investigations.
-
-### Mission Effectiveness
-
-Mission outcomes are evaluated based on actual changes in audit responses and resulting timeline recovery.
-
----
-
-## Assumptions Made
-
-1. Carbon budget data is estimated by Gemini based on IPCC regional data — directionally accurate, not live satellite data
-2. Personal burn rate calculations use established carbon accounting factors (IPCC emission factors per activity type) hardcoded into the question bank
-3. "Survival probability" is a simplified metric representing the probability of staying below 1.5°C given current trajectory — not a formal scientific probability
-4. City-level data covers major global cities and all Indian states — smaller cities fallback to regional estimates
-
----
-## Why Reassessments Matter
-
-Most carbon footprint calculators are used once and forgotten.
-
-DEATHCLOCK is designed for repeated reassessment.
-
-The intended user journey is:
-
-1. Complete an investigation
-2. Receive personalized intervention missions
-3. Apply those changes in real life
-4. Return later
-5. Complete another investigation
-6. Measure actual improvement
-
-The platform then calculates:
-
-- Behavioral changes detected
-- Carbon threat reduction
-- Timeline recovery achieved
-- Mission effectiveness
-- Historical progress
-
-If no meaningful changes are made, the system transparently reports no improvement.
-
-This creates accountability and encourages long-term sustainable behavior.
+- **No globe/map** — deliberately avoided. Radar scanner is more original and more dramatic.
+- **Hardcoded questions, AI-generated insights** — questions are static for speed; Gemini is only called where personalisation is genuinely needed (city data + final swap recommendations). Two API calls per session total.
+- **localStorage session** — city name, carbon data, all answers, burn rate, and committed missions persist across the session without a database.
+- **Canvas share card** — generated client-side, no server dependency for social sharing.
 
 ---
 
@@ -207,7 +161,7 @@ This creates accountability and encourages long-term sustainable behavior.
 
 ```bash
 # Clone the repository
-git clone https://github.com/[your-username]/deathclock
+git clone https://github.com/vaibhavvvvjain03/DEATHCLOCK
 
 # Install dependencies
 cd deathclock
@@ -234,110 +188,77 @@ Get a free API key at [Google AI Studio](https://aistudio.google.com)
 
 ---
 
-## Testing the Application
-
-### Full User Flow Test
-1. Navigate to `/` — verify landing page loads, countdown ticks, ticker scrolls
-2. Enter "Mumbai" in the city field → click RETRIEVE
-3. Verify scanning page: radar sweeps, 9 data lines reveal sequentially
-4. After ~5 seconds, verify automatic navigation to `/dossier`
-5. Click through all 5 sidebar tabs — verify each loads correctly
-6. In AUDIT tab: answer all 18 questions, verify burn rate updates after each
-7. After Q18: verify loading state, then VERDICT tab opens automatically
-8. In VERDICT: commit to a mission, verify committed state and animation
-9. Click BROADCAST — verify share card generates
-
-### Known Limitations
-- City data accuracy depends on Gemini API response quality
-- If Gemini API is unavailable, fallback values are used
-- Mobile layout optimised for 375px and above
-
----
-## Accessibility
-
-DEATHCLOCK is designed to be accessible across devices and input methods.
-
-Implemented accessibility features include:
-
-- Semantic HTML landmarks
-- Keyboard navigation support
-- ARIA labels for interactive controls
-- Accessible dialogs and modals
-- Focus-visible states
-- Screen-reader friendly navigation
-- Skip-to-content navigation
-- Responsive layouts
-
-Accessibility remains an ongoing area of improvement.
-
----
-
 ## Testing
 
-The project includes automated testing for critical application logic.
-
-Covered systems include:
-
-- Carbon burn rate calculations
-- Threat classification logic
-- Mission generation logic
-- Investigation archive comparisons
-- Memory persistence utilities
-- Timeline recovery calculations
-
-Run tests:
+The project includes 118 automated tests covering critical application logic.
 
 ```bash
+# Run all tests
 npm test
 
+# Run with coverage
+npm test -- --coverage
+```
+
+### Test files and coverage
+
+| File | What it covers |
+|---|---|
+| `__tests__/useCountdown.test.ts` | Timer tick logic, years/days/h:m:s formatting, `percentRemaining` calculation |
+| `__tests__/useAuditFlow.test.ts` | Question progression, burn rate accumulation, category transitions, audit reset |
+| `__tests__/useLocalStorageState.test.ts` | localStorage read/write, SSR safety, cross-tab state sync |
+| `__tests__/cityFallbacks.test.ts` | Fallback data selection for unsupported cities |
+| `__tests__/api-carbon.test.ts` | `/api/carbon` route: input validation, Gemini response parsing, error handling |
+| `__tests__/schemas.test.ts` | Zod schema validation for all API request/response shapes |
 
 ---
 
-## Methodology
+## Security
 
-DEATHCLOCK combines AI-generated intelligence with deterministic carbon accounting logic.
+Security hardening added in Pass 7:
 
-### City Intelligence
+- **Input validation** — all API route inputs (`/api/carbon`, `/api/swaps`, `/api/questions`) are validated with Zod schemas before any Gemini API call. Invalid input returns a 400 with a descriptive error; it never reaches the AI layer.
+- **CSP headers** — `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy` headers are set via `next.config.js` `headers()` on all routes.
+- **Rate limiting** — API routes apply per-IP rate limiting (configurable via `RATE_LIMIT_PER_MINUTE` env var, default 20 req/min) using an in-memory sliding window.
+- **Environment validation** — `lib/env.ts` validates all required environment variables at startup using Zod; the server refuses to start with a missing or malformed `GEMINI_API_KEY`.
 
-Gemini API generates:
+---
 
-- Carbon budget estimates
-- Threat classifications
-- Climate intelligence summaries
-- Personalized intervention missions
+## Accessibility
 
-### Carbon Burn Rate
+Accessibility improvements added in Pass 9:
 
-Burn rate calculations are derived from established carbon accounting principles using activity-specific emission factors.
+- **Skip link** — a visually hidden "Skip to main content" link is the first focusable element on every page; it becomes visible on keyboard focus.
+- **Reduced motion** — `@media (prefers-reduced-motion: reduce)` disables all CSS animations/transitions. The custom crosshair cursor also automatically hides itself and restores the native cursor when reduced motion is set.
+- **ARIA labeling** — all interactive controls have `aria-label`. The dossier navigation uses a full ARIA tab pattern (`role="tablist"`, `role="tab"`, `aria-selected`, `aria-controls`, `role="tabpanel"`, `aria-labelledby`).
+- **Live regions** — `aria-live="polite"` on burn rate (updated after each audit answer) and the breach countdown's years/days display. `aria-live="off"` on the H:M:S seconds to prevent constant screen reader interruptions.
+- **Input accessibility** — the city input has an explicit `<label>` and `aria-describedby` pointing to a hidden hint span.
+- **Focus styles** — `:focus-visible` outlines are `1px solid #ff4444` throughout, matching the design language while remaining perceptible.
 
-Categories include:
+---
 
-- Transportation
-- Food Consumption
-- Residential Energy
-- Consumer Purchases
-- Water & Waste
-- Work Patterns
+## Assumptions Made
 
-### Timeline Recovery
+1. Carbon budget data is estimated by Gemini based on IPCC regional data — directionally accurate, not live satellite data
+2. Personal burn rate calculations use established carbon accounting factors (IPCC emission factors per activity type) hardcoded into the question bank
+3. "Survival probability" is a simplified metric representing the probability of staying below 1.5°C given current trajectory — not a formal scientific probability
+4. City-level data covers major global cities and all Indian states — smaller cities fallback to regional estimates
 
-Timeline recovery estimates represent projected reductions in environmental impact resulting from behavioral improvements between investigations.
-
-The purpose is educational and motivational rather than scientific forecasting.
 ---
 
 ## Challenge Alignment
 
 | Criterion | How DeathClock Addresses It |
 |---|---|
-| Understand carbon footprint | City-level carbon budget data, field intelligence, emission evidence by category |
-| Track carbon footprint | 18-question personal audit calculates individual burn rate in real-time |
-| Reduce carbon footprint | 3 AI-personalized behavior swap missions with local context and commitment mechanic |
-| Smart dynamic assistant | Gemini generates city-specific intelligence + personalized missions from audit answers |
+| Understand carbon footprint | City-level carbon budget dossier, field intelligence, emission evidence by category (DOSSIER + EVIDENCE tabs) |
+| Track carbon footprint | 18-question personal audit calculates individual burn rate in real-time, updated after each answer (AUDIT tab) |
+| Reduce carbon footprint | 3 AI-personalized behavior swap missions with local context, quantified seconds impact, and commitment mechanic (VERDICT tab) |
+| Smart dynamic assistant | Gemini generates city-specific intelligence + personalized missions from all 18 audit answers |
 | Logical decision making | Burn rate calculated from IPCC emission factors; missions ranked by impact |
-| Real-world usability | Works for 195 countries + all Indian states; mobile responsive |
+| Real-world usability | Works for 195 countries + all Indian states; mobile responsive from 375px |
 
 ---
+
 ## Screenshots
 
 ### Landing Page
@@ -357,29 +278,6 @@ The purpose is educational and motivational rather than scientific forecasting.
 
 ---
 
-## Built With
-
-- [Next.js 14](https://nextjs.org/) — App Router, TypeScript
-- [Google Gemini API](https://ai.google.dev/) — Carbon intelligence + personalized missions
-- [Google Antigravity IDE](https://antigravity.google/) — AI-assisted development
-- [Framer Motion](https://www.framer.com/motion/) — Animations and transitions
-- [Canvas API](https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API) — Radar, city skyline, share card
-- [IBM Plex Mono / IBM Plex Sans](https://fonts.google.com/specimen/IBM+Plex+Mono) — Typography
-
----
-## Future Roadmap
-
-Planned improvements include:
-
-- Cloud-synced investigation history
-- Multi-device profile support
-- AI-powered sustainability advisor
-- Community climate leaderboards
-- Regional climate comparison reports
-- Advanced emissions forecasting
-- Expanded city intelligence coverage
-- Enhanced accessibility support
----
 ## Author
 
 **Vaibhav A Jain**  

@@ -237,6 +237,20 @@ export function AuditTab({
         {/* Progress bar */}
         <ProgressBar percent={(qNumber / totalQs) * 100} />
 
+        {/* Plain-language purpose — small muted line, doesn't push options off-screen */}
+        <p
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 9,
+            color: "#555555",
+            letterSpacing: 1,
+            lineHeight: 1.8,
+            margin: "8px 0 4px",
+          }}
+        >
+          This audit calculates your personal carbon contribution and generates tailored reduction recommendations.
+        </p>
+
         {/* Category tag */}
         <div
           style={{

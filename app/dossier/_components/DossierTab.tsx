@@ -3,6 +3,11 @@
  * Shows the city's classified overview: satellite map visual, a 2×3 grid
  * of key carbon metrics (budget, emissions, threat class, etc.), and the
  * Gemini-generated contextual intelligence sentence for the target region.
+ *
+ * UNDERSTAND: Displays city-level carbon budget, survival probability, and
+ * emission data sourced from the Gemini API (/api/carbon), fulfilling the
+ * "help individuals understand their carbon footprint" goal by translating
+ * raw CO₂ figures into a classified intelligence dossier format.
  */
 "use client";
 import { CarbonData } from "@/lib/types";
