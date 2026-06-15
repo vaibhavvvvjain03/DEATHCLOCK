@@ -10,6 +10,8 @@ import { checkRateLimit } from "../../../lib/rateLimit";
 import { getCached, setCached } from "../../../lib/cache";
 import { CARBON_CONSTANTS, FALLBACK_CARBON_DATA } from "../../../lib/constants";
 import { getCityFallback } from "../../../lib/cityFallbacks";
+import { carbonRequestSchema } from "../../../lib/schemas";
+import { validateEnv } from "../../../lib/env";
 
 export const maxDuration = 30;
 
@@ -40,6 +42,17 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
   let requestedLocation = "UNKNOWN";
   try {
+    // Fail fast if required env vars are not set
+    try {
+      validateEnv();
+    } catch (envError) {
+      console.error("[/api/carbon] Environment validation failed:", envError);
+      return NextResponse.json(
+        { error: "Server configuration error. Please contact support." },
+        { status: 500, headers: securityHeaders }
+      );
+    }
+
     // Rate limit check
     const ip = request.headers.get("x-forwarded-for") || "unknown-ip";
     if (!checkRateLimit(ip, CARBON_CONSTANTS.RATE_LIMIT_MAX_REQUESTS, CARBON_CONSTANTS.RATE_LIMIT_WINDOW_MS)) {
@@ -49,21 +62,25 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json().catch(() => null);
-    if (!body || typeof body.location !== "string") {
+    const rawBody = await request.json().catch(() => null);
+
+    // Zod schema validation — rejects empty, overlong, or injection-risk values
+    const parseResult = carbonRequestSchema.safeParse(rawBody);
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: "location is a required string field in the request body." },
+        { error: "Invalid request", details: parseResult.error.flatten() },
         { status: 400, headers: securityHeaders }
       );
     }
 
-    // Sanitize input
-    let location = body.location;
-    location = location.replace(/<[^>]*>/g, ""); // Strip HTML tags
-    location = location.slice(0, CARBON_CONSTANTS.MAX_CITY_NAME_LENGTH); // Limit length
+    // Use the validated (sanitized) value from this point on
+    let location = parseResult.data.location;
+    // Additional secondary sanitization: strip any residual HTML tags and trim
+    location = location.replace(/<[^>]*>/g, "").trim();
+    location = location.slice(0, CARBON_CONSTANTS.MAX_CITY_NAME_LENGTH);
     requestedLocation = location;
-    
-    if (!location.trim()) {
+
+    if (!location) {
       return NextResponse.json(
         { error: "location cannot be empty after sanitization." },
         { status: 400, headers: securityHeaders }

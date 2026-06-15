@@ -8,6 +8,8 @@ import { NextResponse } from "next/server";
 import { callGemini } from "../../../lib/gemini";
 import { checkRateLimit } from "../../../lib/rateLimit";
 import { CARBON_CONSTANTS, FALLBACK_SWAPS } from "../../../lib/constants";
+import { swapsRequestSchema } from "../../../lib/schemas";
+import { validateEnv } from "../../../lib/env";
 
 export const maxDuration = 30;
 
@@ -38,6 +40,17 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
   let cityName = "your city";
   try {
+    // Fail fast if required env vars are not set
+    try {
+      validateEnv();
+    } catch (envError) {
+      console.error("[/api/swaps] Environment validation failed:", envError);
+      return NextResponse.json(
+        { error: "Server configuration error. Please contact support." },
+        { status: 500, headers: securityHeaders }
+      );
+    }
+
     // Rate limit check
     const ip = request.headers.get("x-forwarded-for") || "unknown-ip";
     if (!checkRateLimit(ip, CARBON_CONSTANTS.RATE_LIMIT_MAX_REQUESTS, CARBON_CONSTANTS.RATE_LIMIT_WINDOW_MS)) {
@@ -47,26 +60,29 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json().catch(() => null);
-    if (!body || typeof body.allAnswers !== "object" || typeof body.cityName !== "string" || typeof body.personalDailySeconds !== "number") {
+    const rawBody = await request.json().catch(() => null);
+
+    // Zod schema validation — rejects missing fields, bad types, or injection-risk values
+    const parseResult = swapsRequestSchema.safeParse(rawBody);
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: "allAnswers (object), cityName (string), and personalDailySeconds (number) are required." },
+        { error: "Invalid request", details: parseResult.error.flatten() },
         { status: 400, headers: securityHeaders }
       );
     }
 
-    // Sanitize cityName
-    cityName = body.cityName.replace(/<[^>]*>/g, ""); // Strip HTML tags
-    cityName = cityName.slice(0, CARBON_CONSTANTS.MAX_CITY_NAME_LENGTH); // Limit length
-    
-    if (!cityName.trim()) {
+    // Use validated/sanitized values from this point on
+    cityName = parseResult.data.cityName.replace(/<[^>]*>/g, "").trim();
+    cityName = cityName.slice(0, CARBON_CONSTANTS.MAX_CITY_NAME_LENGTH);
+
+    if (!cityName) {
       return NextResponse.json(
         { error: "cityName cannot be empty after sanitization." },
         { status: 400, headers: securityHeaders }
       );
     }
 
-    const { allAnswers, personalDailySeconds } = body;
+    const { allAnswers, personalDailySeconds } = parseResult.data;
     const formattedAllAnswers = JSON.stringify(allAnswers);
 
     const prompt = `Based on these lifestyle answers for a ${cityName} resident: ${formattedAllAnswers}. Identify exactly 3 behavior swaps that would have the highest carbon impact. For each swap calculate exactly how many seconds it adds back to the city clock per day. Return ONLY valid JSON: { "swaps": [ { "action": string, "secondsBack": number, "difficulty": "easy" | "medium" | "hard", "localContext": string (make this specific to the city, mention local options) } ] }`;
