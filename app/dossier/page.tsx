@@ -8,6 +8,11 @@ import { CarbonData } from "@/lib/types";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useAuditFlow } from "@/hooks/useAuditFlow";
 import { useLocalStorageState } from "@/hooks/useLocalStorageState";
+import { DataField } from "@/components/ui/DataField";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ProgressBar } from "@/components/ui/ProgressBar";
+import { SectionLabel } from "@/components/ui/SectionLabel";
+import { MissionCard } from "@/components/ui/MissionCard";
 
 // ── Types ──────────────────────────────────────────────
 type Tab = "DOSSIER" | "EVIDENCE" | "TIMELINE" | "AUDIT" | "VERDICT" | "ARCHIVE";
@@ -387,27 +392,12 @@ export default function DossierPage() {
               { label: "POPULATION AT RISK", value: "24.4M RESIDENTS", color: "#ffaa00" },
               { label: "AUTHORIZATION", value: "PUBLIC ACCESS", color: "#00cc66" },
             ].map((cell, i) => (
-              <div
+              <DataField 
                 key={i}
-                style={{
-                  background: "#080808",
-                  padding: "20px 24px",
-                }}
-              >
-                <div className="doc-label" style={{ marginBottom: 8, color: "#666" }}>{cell.label}</div>
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 16,
-                    color: cell.color,
-                    fontVariantNumeric: "tabular-nums",
-                    fontWeight: 500,
-                    textShadow: `0 0 10px ${cell.color}40`,
-                  }}
-                >
-                  {cell.value}
-                </div>
-              </div>
+                label={cell.label}
+                value={cell.value}
+                variant={cell.color === "#ff4444" ? "danger" : cell.color === "#ffaa00" ? "warning" : cell.color === "#00cc66" ? "success" : "default"}
+              />
             ))}
           </div>
         </div>
@@ -473,8 +463,10 @@ export default function DossierPage() {
               <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: "#e0e0e0", letterSpacing: 2 }}>{bar.label}</span>
+                  {/* Skipped StatusBadge replacement here to prevent visual differences */}
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: bar.color, letterSpacing: 1, textShadow: `0 0 8px ${bar.color}44` }}>{bar.pct}%</span>
                 </div>
+                {/* Skipped ProgressBar replacement here to prevent visual differences from the segmented bar */}
                 {/* Advanced Segmented Bar */}
                 <div style={{ display: "flex", height: 6, gap: 2, background: "#0a0a0a", border: "1px solid #111", padding: 1 }}>
                   {Array.from({ length: 40 }).map((_, segmentIdx) => {
@@ -714,6 +706,7 @@ export default function DossierPage() {
               77.3% DEPLETED
             </span>
           </div>
+          {/* Skipped ProgressBar replacement here to prevent visual differences (custom gradient and height) */}
           <div className="progress-track" style={{ height: 4, background: "#111111", border: "1px solid #222" }}>
             <div
               style={{
@@ -762,7 +755,7 @@ export default function DossierPage() {
     if (showBriefing && catIdx === 0 && qIdx === 0) {
       return (
         <div style={{ flex: 1, padding: isMobile ? "24px 16px" : "40px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <div className="doc-label" style={{ color: "#ffaa00", marginBottom: 16 }}>PERSONAL CLIMATE ASSESSMENT</div>
+          <SectionLabel>PERSONAL CLIMATE ASSESSMENT</SectionLabel>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "#dddddd", lineHeight: 1.6, marginBottom: 24 }}>
             This assessment contains 30 intelligence checkpoints.
             <br /><br />
@@ -942,12 +935,7 @@ export default function DossierPage() {
           </div>
 
           {/* Progress bar */}
-          <div className="progress-track" style={{ marginBottom: 16 }}>
-            <div
-              className="progress-fill"
-              style={{ width: `${(qNumber / totalQs) * 100}%` }}
-            />
-          </div>
+          <ProgressBar percent={(qNumber / totalQs) * 100} />
 
           {/* Category tag */}
           <div
@@ -1236,6 +1224,7 @@ export default function DossierPage() {
           { label: "WEEKLY BURN", value: totalBurnRate > 0 ? `-${(totalBurnRate * 7).toLocaleString()}s` : "—" },
           { label: "IMPACT CLASS", value: currentThreat.split(" ")[0], color: totalBurnRate > 5000 ? "#ff4444" : totalBurnRate > 2000 ? "#ffaa00" : "#00cc66" },
         ].map((cell, i) => (
+          /* Skipped DataField replacement here to prevent visual differences */
           <div key={i} style={{ background: "#0d0d0d", padding: 12, border: "1px solid #1e1e1e" }}>
             <div className="doc-label" style={{ marginBottom: 6 }}>{cell.label}</div>
             <div
@@ -1310,6 +1299,7 @@ export default function DossierPage() {
                 >
                   {name}
                 </span>
+                {/* Skipped ProgressBar and StatusBadge replacements to prevent visual differences */}
                 <div className="cat-bar-track">
                   <div
                     className="cat-bar-fill"
@@ -1383,6 +1373,7 @@ export default function DossierPage() {
           {missions.map((mission, idx) => {
             const isCompleted = mission.status === "completed";
             return (
+              /* Skipped MissionCard replacement here to prevent visual differences (missing idx in MissionCard signature) */
               <div
                 key={idx}
                 onClick={() => handleCommit(mission, idx)}
