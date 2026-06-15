@@ -361,6 +361,22 @@ input, textarea { font-family: var(--font-mono); }
   text-transform: uppercase;
 }
 
+/* Locked nav item — no hover effect, stays dim */
+.nav-item.locked,
+.nav-item.locked:hover {
+  color: #444444;
+  background: transparent;
+  border-left-color: transparent;
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+/* ── Nav error toast slide-up ── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 /* ── Mobile touch targets ── */
 @media (max-width: 768px) {
   button, a, [role="button"] {

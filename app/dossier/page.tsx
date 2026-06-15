@@ -37,8 +37,18 @@ export default function DossierPage() {
   const [city] = useLocalStorageState<string>("dc_city", "");
   const [apiData] = useLocalStorageState<CarbonData | null>("dc_data", null);
   const [isMobile, setIsMobile] = useState(false);
+  const [navError, setNavError] = useState<string | null>(null);
+
+  // Tabs that require a scanned city with loaded data
+  const LOCKED_TABS: Tab[] = ["TIMELINE", "AUDIT", "VERDICT", "ARCHIVE"];
 
   const handleTabChange = (newTab: Tab) => {
+    if (LOCKED_TABS.includes(newTab) && !apiData) {
+      setNavError("NO TARGET ACQUIRED — return to home and enter a city or country first.");
+      setTimeout(() => setNavError(null), 3500);
+      return;
+    }
+    setNavError(null);
     setTab(newTab);
     router.replace(`?tab=${newTab}`, { scroll: false });
   };
@@ -81,13 +91,20 @@ export default function DossierPage() {
 
     initFromStorage(city);
 
-    // Check URL params for initial tab
+    // Check URL params for initial tab — respect lock if no data
     const searchParams = new URLSearchParams(window.location.search);
-    const initialTab = searchParams.get("tab");
-    if (initialTab && ["DOSSIER", "EVIDENCE", "TIMELINE", "AUDIT", "VERDICT", "ARCHIVE"].includes(initialTab)) {
-      setTab(initialTab as Tab);
+    const initialTab = searchParams.get("tab") as Tab | null;
+    const allTabs: Tab[] = ["DOSSIER", "EVIDENCE", "TIMELINE", "AUDIT", "VERDICT", "ARCHIVE"];
+    if (initialTab && allTabs.includes(initialTab)) {
+      const lockedTabs: Tab[] = ["TIMELINE", "AUDIT", "VERDICT", "ARCHIVE"];
+      if (lockedTabs.includes(initialTab) && !apiData) {
+        setTab("DOSSIER");
+        router.replace("?tab=DOSSIER", { scroll: false });
+      } else {
+        setTab(initialTab);
+      }
     }
-  }, [city, router, initFromStorage]);
+  }, [city, router, initFromStorage, apiData]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -355,6 +372,7 @@ export default function DossierPage() {
           >
             {NAV_ITEMS.map((item) => {
               const isActive = tab === item.id;
+              const isLocked = LOCKED_TABS.includes(item.id) && !apiData;
               return (
                 <button
                   key={item.id}
@@ -363,7 +381,8 @@ export default function DossierPage() {
                   aria-selected={isActive}
                   aria-controls={`tabpanel-${item.id}`}
                   onClick={() => handleTabChange(item.id)}
-                  aria-label={`Switch to ${item.label} tab`}
+                  aria-label={isLocked ? `${item.label} tab — enter a city first` : `Switch to ${item.label} tab`}
+                  title={isLocked ? "Enter a city first" : undefined}
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: 16,
@@ -372,10 +391,12 @@ export default function DossierPage() {
                     border: "none",
                     borderBottom: `2px solid ${isActive ? "#ff4444" : "transparent"}`,
                     background: "transparent",
-                    color: isActive ? "#ffffff" : "#a0a0a0",
+                    color: isActive ? "#ffffff" : isLocked ? "#333333" : "#a0a0a0",
                     whiteSpace: "nowrap",
                     flexShrink: 0,
                     textTransform: "uppercase",
+                    cursor: isLocked ? "not-allowed" : "pointer",
+                    opacity: isLocked ? 0.4 : 1,
                   }}
                 >
                   {item.icon} {item.label}
@@ -384,6 +405,7 @@ export default function DossierPage() {
                       {item.badge}
                     </span>
                   )}
+                  {isLocked && <span style={{ marginLeft: 4, fontSize: 9, color: "#555" }}>⊘</span>}
                 </button>
               );
             })}
@@ -402,6 +424,7 @@ export default function DossierPage() {
           >
             {NAV_ITEMS.map((item) => {
               const isActive = tab === item.id;
+              const isLocked = LOCKED_TABS.includes(item.id) && !apiData;
               return (
                 <button
                   key={item.id}
@@ -410,12 +433,15 @@ export default function DossierPage() {
                   aria-selected={isActive}
                   aria-controls={`tabpanel-${item.id}`}
                   onClick={() => handleTabChange(item.id)}
-                  className={`nav-item${isActive ? " active" : ""}`}
-                  aria-label={`Switch to ${item.label} tab`}
+                  className={`nav-item${isActive ? " active" : ""}${isLocked ? " locked" : ""}`}
+                  aria-label={isLocked ? `${item.label} tab — enter a city first` : `Switch to ${item.label} tab`}
+                  title={isLocked ? "Enter a city first" : undefined}
+                  style={isLocked ? { opacity: 0.35, cursor: "not-allowed", pointerEvents: "auto" } : undefined}
                 >
                   <span style={{ flexShrink: 0 }}>{item.icon}</span>
                   <span style={{ flex: 1 }}>{item.label}</span>
-                  {item.badge && (
+                  {isLocked && <span style={{ fontSize: 9, color: "#555", marginLeft: 2 }}>⊘</span>}
+                  {item.badge && !isLocked && (
                     <span className="nav-badge">
                       {item.badge}
                     </span>
@@ -522,6 +548,35 @@ export default function DossierPage() {
           </AnimatePresence>
         </div>
       </div>
+      {/* ── NAV ERROR TOAST ── */}
+      {navError && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          style={{
+            position: "fixed",
+            bottom: 32,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#0c0c0c",
+            border: "1px solid #ff4444",
+            borderLeft: "4px solid #ff4444",
+            padding: "14px 24px",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "#ff4444",
+            letterSpacing: 2,
+            textTransform: "uppercase",
+            zIndex: 10001,
+            maxWidth: 480,
+            textAlign: "center",
+            boxShadow: "0 0 30px rgba(255,68,68,0.2)",
+            animation: "fadeInUp 0.2s ease",
+          }}
+        >
+          ⊘ {navError}
+        </div>
+      )}
       {showBurnoutPopup && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: "#0c0c0c", border: "1px solid #ff4444", padding: 40, maxWidth: 500, textAlign: "center", fontFamily: "var(--font-mono)" }}>
