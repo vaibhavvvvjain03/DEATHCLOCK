@@ -49,8 +49,10 @@ export function TimelineTab({ city, isMobile, countdown, auditDone, totalBurnRat
         <div style={{ position: "absolute", bottom: 0, left: 0, width: 12, height: 12, borderBottom: "2px solid #555", borderLeft: "2px solid #555" }} />
         <div style={{ position: "absolute", bottom: 0, right: 0, width: 12, height: 12, borderBottom: "2px solid #555", borderRight: "2px solid #555" }} />
 
-        {/* Main countdown */}
+        {/* Main countdown — years/days change rarely, polite announce is safe */}
         <div
+          aria-live="polite"
+          aria-atomic="true"
           style={{
             fontFamily: "var(--font-sans)",
             fontSize: isMobile ? 48 : 80,
@@ -67,8 +69,9 @@ export function TimelineTab({ city, isMobile, countdown, auditDone, totalBurnRat
           {countdown.yrs} YRS {countdown.days} DAYS
         </div>
 
-        {/* H:M:S */}
+        {/* H:M:S — changes every second, aria-live="off" prevents screen reader noise */}
         <div
+          aria-live="off"
           style={{
             display: "flex",
             alignItems: "baseline",

@@ -398,9 +398,11 @@ export function AuditTab({
           </div>
         )}
 
-        {/* Burn rate display */}
+        {/* Burn rate display — aria-live so screen readers announce updates after each answer */}
         {totalBurnRate > 0 && (
           <div
+            aria-live="polite"
+            aria-atomic="true"
             style={{
               marginTop: 8,
               fontFamily: "var(--font-mono)",

@@ -665,6 +665,7 @@ function LandingPageContent() {
                       spellCheck={false}
                       autoCorrect="off"
                       autoCapitalize="off"
+                      aria-describedby="city-hint"
                       style={{
                         flex: 1,
                         background: "transparent",
@@ -762,6 +763,11 @@ function LandingPageContent() {
                       </div>
                     )}
                   </div>
+
+                  {/* Screen-reader hint for the city input */}
+                  <span id="city-hint" className="sr-only">
+                    Enter a city, Indian state, country, or US state name to retrieve its carbon dossier
+                  </span>
 
                   {/* Disclaimer */}
                   <div

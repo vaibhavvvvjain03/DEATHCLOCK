@@ -342,6 +342,8 @@ export default function DossierPage() {
         {/* ── SIDEBAR (desktop) / TOP TAB BAR (mobile) ── */}
         {isMobile ? (
           <div
+            role="tablist"
+            aria-label="Dossier sections"
             style={{
               display: "flex",
               overflowX: "auto",
@@ -356,6 +358,10 @@ export default function DossierPage() {
               return (
                 <button
                   key={item.id}
+                  id={`tab-${item.id}`}
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-controls={`tabpanel-${item.id}`}
                   onClick={() => handleTabChange(item.id)}
                   aria-label={`Switch to ${item.label} tab`}
                   style={{
@@ -384,6 +390,8 @@ export default function DossierPage() {
           </div>
         ) : (
           <div
+            role="tablist"
+            aria-label="Dossier sections"
             style={{
               width: 180,
               background: "#000",
@@ -397,6 +405,10 @@ export default function DossierPage() {
               return (
                 <button
                   key={item.id}
+                  id={`tab-${item.id}`}
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-controls={`tabpanel-${item.id}`}
                   onClick={() => handleTabChange(item.id)}
                   className={`nav-item${isActive ? " active" : ""}`}
                   aria-label={`Switch to ${item.label} tab`}
@@ -427,6 +439,10 @@ export default function DossierPage() {
           <AnimatePresence mode="wait">
             <motion.div
               key={tab}
+              id={`tabpanel-${tab}`}
+              role="tabpanel"
+              aria-labelledby={`tab-${tab}`}
+              tabIndex={0}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
